@@ -1,0 +1,136 @@
+:root {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #111827;
+  background-color: #f9fafb;
+  line-height: 1.5;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.swipe-section {
+  width: min(420px, 100%);
+  margin: 0 auto 2rem;
+}
+
+.swipe-section__title {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+}
+
+.swipe-container {
+  position: relative;
+  width: 100%;
+  height: 480px;
+}
+
+.swipe {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.event-card {
+  width: 100%;
+  height: 100%;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.15);
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+}
+
+.event-card__image {
+  flex: 1 1 55%;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 1rem;
+}
+
+.event-card__type {
+  background: rgba(15, 23, 42, 0.75);
+  color: #f9fafb;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+
+.event-card__body {
+  flex: 1 1 45%;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.event-card__header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.3;
+}
+
+.event-card__meta {
+  margin: 0.25rem 0 0;
+  color: #4b5563;
+  font-size: 0.95rem;
+}
+
+.event-card__venue {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #1f2937;
+}
+
+.event-card__description {
+  margin: 0;
+  color: #374151;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.event-card__link {
+  align-self: flex-start;
+  margin-top: auto;
+  padding: 0.5rem 1rem;
+  background-color: #2563eb;
+  color: #f9fafb;
+  border-radius: 0.5rem;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.event-card__link:hover {
+  background-color: #1d4ed8;
+}
+
+.event-card--empty {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.swipe-section__info {
+  margin-top: 1rem;
+  color: #4b5563;
+  font-size: 0.95rem;
+}
