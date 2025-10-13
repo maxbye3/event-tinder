@@ -87,37 +87,23 @@ const App = () => {
     : sampleData.events;
 
   return (
-    <main style={{ maxWidth: '60ch' }}>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-        <label htmlFor="search-input" style={{ fontWeight: 600 }}>
+    <main className="app">
+      <form className="app__form" onSubmit={handleSubmit}>
+        <label className="app__label" htmlFor="search-input">
           Describe the events you want to find:
         </label>
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+        <div className="app__controls">
           <input
+            className="app__input"
             id="search-input"
             type="text"
             value={inputValue}
             onChange={(event) => setInputValue(event.target.value)}
             placeholder="e.g. free outdoor concerts in DC this weekend"
-            style={{
-              flex: 1,
-              padding: '0.75rem',
-              borderRadius: '0.5rem',
-              border: '1px solid #d1d5db',
-              fontSize: '1rem',
-            }}
           />
           <button
+            className="app__button"
             type="submit"
-            style={{
-              padding: '0.75rem 1.5rem',
-              borderRadius: '0.5rem',
-              border: 'none',
-              backgroundColor: '#2563eb',
-              color: '#f9fafb',
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
             disabled={loading}
           >
             {loading ? 'Searching…' : 'Search'}
