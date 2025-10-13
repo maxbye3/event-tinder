@@ -74,11 +74,30 @@ const typeImageMap = {
   other: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?auto=format&fit=crop&w=1200&q=80',
 };
 
+const normalizeType = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
+
+const OUTDOOR_FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1482192505345-5655af888cc4?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1493244040629-496f6d136cc6?auto=format&fit=crop&w=1200&q=80',
+];
+
+const TECH_FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&q=80&w=1420',
+  'https://plus.unsplash.com/premium_photo-1681399975135-252eab5fd2db?auto=format&fit=crop&q=80&w=1374',
+  'https://plus.unsplash.com/premium_photo-1661963874418-df1110ee39c1?auto=format&fit=crop&q=80&w=1386',
+  'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&q=80&w=1472',
+  'https://images.unsplash.com/photo-1504384764586-bb4cdc1707b0?auto=format&fit=crop&q=80&w=1470',
+];
+
 const DEFAULT_FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1200&q=80';
 
 const selectCuratedImage = ({ title, type, term }) => {
   const haystack = [title, term].filter((value) => typeof value === 'string').join(' ').toLowerCase();
+  const normalizedType = normalizeType(type);
 
   for (const { pattern, url } of curatedImageCatalog) {
     if (pattern.test(haystack)) {
@@ -86,8 +105,8 @@ const selectCuratedImage = ({ title, type, term }) => {
     }
   }
 
-  if (typeof type === 'string' && typeImageMap[type]) {
-    return typeImageMap[type];
+  if (normalizedType && typeImageMap[normalizedType]) {
+    return typeImageMap[normalizedType];
   }
 
   return null;
@@ -158,6 +177,72 @@ const fetchOpenGraphImage = async (targetUrl) => {
     );
     return null;
   }
+};
+
+const IMAGE_PROBE_HEADERS = {
+  'User-Agent': 'event-tinder/1.0 (+https://example.com)',
+  Accept: 'image/*',
+};
+
+const TRUSTED_IMAGE_HOSTS = new Set(['images.unsplash.com', 'plus.unsplash.com', 'source.unsplash.com']);
+
+const isLikelyBrokenUnsplashUrl = (value) => {
+  try {
+    const { hostname } = new URL(value);
+    return hostname === 'image.unsplash.com';
+  } catch {
+    return false;
+  }
+};
+
+const isReachableImageUrl = async (candidate) => {
+  if (!isHttpUrl(candidate) || isLikelyBrokenUnsplashUrl(candidate)) {
+    return false;
+  }
+
+  let hostname;
+  try {
+    ({ hostname } = new URL(candidate));
+  } catch {
+    return false;
+  }
+
+  if (TRUSTED_IMAGE_HOSTS.has(hostname)) {
+    return true;
+  }
+
+  try {
+    const response = await fetch(candidate, {
+      method: 'HEAD',
+      headers: IMAGE_PROBE_HEADERS,
+      redirect: 'follow',
+      signal: AbortSignal.timeout(2500),
+    });
+
+    if (response.ok) {
+      const contentType = response.headers.get('content-type');
+      return !contentType || contentType.startsWith('image/');
+    }
+
+    if (response.status === 405) {
+      // Some CDNs disallow HEAD but permit GET; accept the URL in this case.
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+};
+
+const resolveCandidateImage = async (candidates) => {
+  for (const candidate of candidates) {
+    if (!(await isReachableImageUrl(candidate))) {
+      continue;
+    }
+    return candidate;
+  }
+  return null;
 };
 
 export const createAgentResponse = async ({ apiKey, query }) => {
@@ -288,15 +373,35 @@ Output format: JSON only — no Markdown, no commentary, no reasoning.`,
         term: sanitizedTerm,
       });
 
-      const candidateImages = [
+      const normalizedType = normalizeType(event.type);
+
+      const fallbackByType = (() => {
+        if (normalizedType === 'tech') {
+          return TECH_FALLBACK_IMAGES;
+        }
+        if (normalizedType === 'outdoors') {
+          return OUTDOOR_FALLBACK_IMAGES;
+        }
+        if (normalizedType && typeImageMap[normalizedType]) {
+          return [typeImageMap[normalizedType]];
+        }
+        return [];
+      })();
+
+      const rawCandidates = [
         resolvedImage,
         event.image,
         ...(Array.isArray(event.imageCandidates) ? event.imageCandidates : []),
         curatedImage,
+        ...fallbackByType,
         DEFAULT_FALLBACK_IMAGE,
-      ];
+      ].filter((value) => typeof value === 'string' && value.length > 0);
 
-      const finalImage = candidateImages.find((src) => isHttpUrl(src));
+      const uniqueCandidates = rawCandidates.filter(
+        (src, index) => rawCandidates.indexOf(src) === index,
+      );
+
+      const finalImage = await resolveCandidateImage(uniqueCandidates);
 
       const { imageCandidates, ...rest } = event;
 

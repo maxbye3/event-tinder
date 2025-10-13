@@ -17,6 +17,56 @@ const formatTimeRange = (startHour, startMinute, endHour, endMinute) => {
   return `${toLabel(startHour, startMinute)} - ${toLabel(endHour, endMinute)}`;
 };
 
+const OUTDOOR_FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1482192505345-5655af888cc4?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1200&q=80',
+  'https://images.unsplash.com/photo-1493244040629-496f6d136cc6?auto=format&fit=crop&w=1200&q=80',
+];
+
+const TECH_FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1531297484001-80022131f5a1?auto=format&fit=crop&q=80&w=1420',
+  'https://plus.unsplash.com/premium_photo-1681399975135-252eab5fd2db?auto=format&fit=crop&q=80&w=1374',
+  'https://plus.unsplash.com/premium_photo-1661963874418-df1110ee39c1?auto=format&fit=crop&q=80&w=1386',
+  'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?auto=format&fit=crop&q=80&w=1472',
+  'https://images.unsplash.com/photo-1504384764586-bb4cdc1707b0?auto=format&fit=crop&q=80&w=1470',
+];
+
+const DEFAULT_FALLBACK_IMAGE =
+  'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1200&q=80';
+
+const TYPE_IMAGE_MAP = {
+  tech: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
+  museum: 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
+  outdoors: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=1200&q=80',
+  political: 'https://images.unsplash.com/photo-1540783797630-447cd0f3eb3d?auto=format&fit=crop&w=1200&q=80',
+  music: 'https://images.unsplash.com/photo-1511379938547-c1f69419868d?auto=format&fit=crop&w=1200&q=80',
+  sports: 'https://images.unsplash.com/photo-1517649763962-0c623066013b?auto=format&fit=crop&w=1200&q=80',
+  other: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?auto=format&fit=crop&w=1200&q=80',
+};
+
+const normalizeType = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
+
+const TRUSTED_IMAGE_HOSTS = new Set(['images.unsplash.com', 'plus.unsplash.com', 'source.unsplash.com']);
+
+const isBrokenImageUrl = (value) => {
+  if (typeof value !== 'string' || value.length === 0) {
+    return true;
+  }
+  try {
+    const { hostname, protocol } = new URL(value);
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      return true;
+    }
+    if (hostname.endsWith('unsplash.com')) {
+      return !TRUSTED_IMAGE_HOSTS.has(hostname);
+    }
+    return false;
+  } catch {
+    return true;
+  }
+};
+
 const sampleEvents = [
   {
     title: 'Dupont Circle Farmers Market',
@@ -193,10 +243,43 @@ export const createSampleData = () => {
   const startOfWeek = new Date(now);
   startOfWeek.setHours(0, 0, 0, 0);
 
+  let outdoorFallbackIndex = 0;
+  let techFallbackIndex = 0;
+
+  const nextOutdoorFallback = () => {
+    const image =
+      OUTDOOR_FALLBACK_IMAGES[outdoorFallbackIndex % OUTDOOR_FALLBACK_IMAGES.length] ?? DEFAULT_FALLBACK_IMAGE;
+    outdoorFallbackIndex += 1;
+    return image;
+  };
+
+  const nextTechFallback = () => {
+    const image = TECH_FALLBACK_IMAGES[techFallbackIndex % TECH_FALLBACK_IMAGES.length] ?? DEFAULT_FALLBACK_IMAGE;
+    techFallbackIndex += 1;
+    return image;
+  };
+
   const events = sampleEvents.map((event) => {
     const date = addDays(startOfWeek, event.offsetDays ?? 0);
+    let image = event.image;
+
+    if (isBrokenImageUrl(image)) {
+      const normalizedType = normalizeType(event.type);
+
+      if (normalizedType === 'tech') {
+        image = nextTechFallback();
+      } else if (normalizedType === 'outdoors') {
+        image = nextOutdoorFallback();
+      } else if (normalizedType && TYPE_IMAGE_MAP[normalizedType]) {
+        image = TYPE_IMAGE_MAP[normalizedType];
+      } else {
+        image = DEFAULT_FALLBACK_IMAGE;
+      }
+    }
+
     return {
       ...event,
+      image,
       date: formatDate(date),
     };
   });
