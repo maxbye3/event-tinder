@@ -20,6 +20,7 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [inputValue, setInputValue] = useState(DEFAULT_QUERY);
   const [activeQuery, setActiveQuery] = useState('');
+  const [showAgent, setShowAgent] = useState(false);
   const requestController = useRef(null);
 
   const startFetch = (query) => {
@@ -89,8 +90,9 @@ const App = () => {
   return (
     <main className="app">
       <form className="app__form" onSubmit={handleSubmit}>
-        <label className="app__label" htmlFor="search-input">
-          Describe the events you want to find:
+        <h1 className="app__title">What are you doing today?</h1>
+        <label className="app__label app__label--hidden" htmlFor="search-input">
+          Describe the events you want to find
         </label>
         <div className="app__controls">
           <input
@@ -111,34 +113,33 @@ const App = () => {
         </div>
       </form>
       <EventSwipe events={eventsForDeck} isLoading={loading} />
-      <h1>Agent Response</h1>
-      {!activeQuery && data && (
-        <p style={{ marginTop: 0, marginBottom: '1rem', color: '#4b5563' }}>
-          Showing sample data. Use the search box to fetch live results.
-        </p>
-      )}
-      {activeQuery && (
-        <p style={{ marginTop: 0, marginBottom: '1rem', color: '#4b5563' }}>
-          Showing results for: <strong>{activeQuery}</strong>
-        </p>
-      )}
-      {loading && <p>Loading…</p>}
-      {error && (
-        <p style={{ color: '#b91c1c' }}>
-          Error fetching data: {error}
-        </p>
-      )}
-      {data && (
-        <pre
-          style={{
-            background: '#111827',
-            color: '#f9fafb',
-            padding: '1rem',
-            borderRadius: '0.75rem',
-            whiteSpace: 'pre-wrap',
-          }}
-        >{JSON.stringify(data, null, 2)}</pre>
-      )}
+      <button
+        className="app__toggle app__toggle--primary"
+        type="button"
+        onClick={() => setShowAgent((prev) => !prev)}
+      >
+        {showAgent ? 'Hide agent response' : 'Show agent response'}
+      </button>
+      {showAgent ? (
+        <section className="app__agent">
+          {activeQuery && (
+            <p className="app__agent-meta">
+              Showing results for: <strong>{activeQuery}</strong>
+            </p>
+          )}
+          {loading && <p className="app__agent-status">Loading…</p>}
+          {error && (
+            <p className="app__agent-error">
+              Error fetching data: {error}
+            </p>
+          )}
+          {data && (
+            <pre className="app__agent-output">
+              {JSON.stringify(data, null, 2)}
+            </pre>
+          )}
+        </section>
+      ) : null}
     </main>
   );
 };

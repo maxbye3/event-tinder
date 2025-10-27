@@ -1,6 +1,6 @@
 # Agent Response Viewer
 
-A minimal Vite + React app with a tiny Express proxy that prints the JSON response from an OpenAI Responses API call using the official SDK.
+A minimal Vite + React app with a tiny Express proxy that prints the JSON response from an OpenAI Responses API call using the official SDK. The default UI applies a **Techno Minimal** grid theme (see `src/themes/background-grid.css`) for a futuristic look, and you can swap in other themes by changing the import in `src/main.css`. Swiping right stores an event in a session-only itinerary; each saved card includes a “Add to Google Calendar” shortcut powered by Google’s template URL (no OAuth required).
 
 ## Quick start
 

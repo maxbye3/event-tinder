@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Event Itinerary</title>
+  <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+  <link rel="stylesheet" href="/themes/background-grid.css" />
+  <link rel="stylesheet" href="/itinerary/styles.css" />
+</head>
+
+<body>
+  <main class="itinerary">
+    <h1>YOUR ITINERARY</h1>
+    <p class="itinerary__intro">
+      These are the events you added by swiping right. Keep this tab open while you explore.
+    </p>
+    <div class="itinerary__empty" data-itinerary-empty hidden>
+      No saved events yet. Swipe right on things you love to build your plan.
+    </div>
+    <div class="itinerary__list" data-itinerary-list></div>
+    <p class="itinerary__footer">
+      Ready for more? Head back to the <a href="/">event feed</a> to keep exploring.
+    </p>
+  </main>
+  <script>
+    (function () {
+      const STORAGE_KEY = 'event-tinder-itinerary';
+      const listEl = document.querySelector('[data-itinerary-list]');
+      const emptyEl = document.querySelector('[data-itinerary-empty]');
+
+      if (!listEl || !emptyEl) {
+        return;
+      }
+
+      const safeText = (value, fallback = '') => {
+        if (typeof value !== 'string') {
+          return fallback;
+        }
+        const trimmed = value.trim();
+        return trimmed.length > 0 ? trimmed : fallback;
+      };
+
+      const readItinerary = () => {
+        try {
+          const raw = window.sessionStorage.getItem(STORAGE_KEY);
+          if (!raw) {
+            return [];
+          }
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+          console.error('Failed to load itinerary from sessionStorage', error);
+          return [];
+        }
+      };
+
+      const createMetaText = (event) => {
+        const parts = [];
+        const date = safeText(event.date);
+        const time = safeText(event.time);
+        if (date) {
+          parts.push(date);
+        }
+        if (time) {
+          parts.push(time);
+        }
+        return parts.join(' • ');
+      };
+
+      const parseDateOnly = (value) => {
+        if (typeof value !== 'string') {
+          return null;
+        }
+        const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) {
+          return null;
+        }
+        const year = Number(match[1]);
+        const month = Number(match[2]) - 1;
+        const day = Number(match[3]);
+        const date = new Date(year, month, day);
+        date.setHours(0, 0, 0, 0);
+        return Number.isNaN(date.getTime()) ? null : date;
+      };
+
+      const parseTimePart = (value) => {
+        if (typeof value !== 'string') {
+          return null;
+        }
+        const match = value.trim().match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
+        if (!match) {
+          return null;
+        }
+        let hours = Number(match[1]);
+        const minutes = Number(match[2] ?? '0');
+        const period = match[3].toUpperCase();
+
+        if (hours < 1 || hours > 12 || minutes < 0 || minutes > 59) {
+          return null;
+        }
+
+        if (hours === 12) {
+          hours = 0;
+        }
+
+        if (period === 'PM') {
+          hours += 12;
+        }
+
+        return { hours, minutes };
+      };
+
+      const parseTimeRange = (value) => {
+        if (typeof value !== 'string' || value.trim().length === 0) {
+          return null;
+        }
+
+        const parts = value.split('-').map((part) => part.trim()).filter((part) => part.length > 0);
+        if (parts.length === 0) {
+          return null;
+        }
+
+        const start = parseTimePart(parts[0]);
+        const end = parts[1] ? parseTimePart(parts[1]) : null;
+
+        if (!start) {
+          return null;
+        }
+
+        return { start, end };
+      };
+
+      const formatForCalendar = (date) => {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+          return null;
+        }
+        const pad = (num) => String(num).padStart(2, '0');
+        return [
+          date.getUTCFullYear(),
+          pad(date.getUTCMonth() + 1),
+          pad(date.getUTCDate()),
+          'T',
+          pad(date.getUTCHours()),
+          pad(date.getUTCMinutes()),
+          '00Z',
+        ].join('');
+      };
+
+      const buildCalendarDetails = (event) => {
+        const lines = [];
+        const meta = createMetaText(event);
+        const description = safeText(event.description);
+        const url = safeText(event.url);
+
+        if (description) {
+          lines.push(description);
+        }
+
+        if (meta) {
+          lines.push(meta);
+        }
+
+        if (url) {
+          lines.push(`More info: ${url}`);
+        }
+
+        return lines.join('\n\n');
+      };
+
+      const buildCalendarUrl = (event) => {
+        const params = new URLSearchParams({ action: 'TEMPLATE' });
+        const title = safeText(event.title, 'Saved event');
+        params.set('text', title);
+
+        const baseDate = parseDateOnly(event.date);
+        const range = parseTimeRange(event.time);
+        let startDateTime = null;
+        let endDateTime = null;
+
+        if (baseDate) {
+          const start = new Date(baseDate);
+          if (range?.start) {
+            start.setHours(range.start.hours, range.start.minutes, 0, 0);
+          }
+
+          startDateTime = start;
+
+          const end = new Date(baseDate);
+
+          if (range?.end) {
+            end.setHours(range.end.hours, range.end.minutes, 0, 0);
+          } else if (range?.start) {
+            end.setTime(start.getTime() + 60 * 60 * 1000);
+          } else {
+            end.setDate(end.getDate() + 1);
+          }
+
+          if (end <= start) {
+            end.setTime(start.getTime() + 60 * 60 * 1000);
+          }
+
+          endDateTime = end;
+        }
+
+        const startToken = startDateTime ? formatForCalendar(startDateTime) : null;
+        const endToken = endDateTime ? formatForCalendar(endDateTime) : null;
+
+        if (startToken && endToken) {
+          params.set('dates', `${startToken}/${endToken}`);
+        } else {
+          return null;
+        }
+
+        const timeZone = Intl?.DateTimeFormat?.().resolvedOptions?.().timeZone;
+        if (typeof timeZone === 'string' && timeZone.length > 0) {
+          params.set('ctz', timeZone);
+        }
+
+        const details = buildCalendarDetails(event);
+        if (details) {
+          params.set('details', details);
+        }
+
+        const locationParts = [safeText(event.venue), safeText(event.address)].filter((chunk) => chunk);
+        if (locationParts.length > 0) {
+          params.set('location', locationParts.join(', '));
+        }
+
+        params.set('sf', 'true');
+
+        return `https://calendar.google.com/calendar/render?${params.toString()}`;
+      };
+
+      const writeItinerary = (nextItems) => {
+        try {
+          window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(nextItems));
+        } catch (error) {
+          console.error('Failed to update itinerary in sessionStorage', error);
+        }
+      };
+
+      const refreshEmptyState = (items) => {
+        emptyEl.hidden = items.length > 0;
+      };
+
+      const renderEventCard = (event, items) => {
+        const card = document.createElement('article');
+        card.className = 'itinerary-card';
+
+        const titleEl = document.createElement('h2');
+        titleEl.textContent = safeText(event.title, 'Saved event');
+        card.appendChild(titleEl);
+
+        const metaText = createMetaText(event);
+        if (metaText) {
+          const metaEl = document.createElement('p');
+          metaEl.className = 'itinerary-card__meta';
+          metaEl.textContent = metaText;
+          card.appendChild(metaEl);
+        }
+
+        const venue = safeText(event.venue);
+        const address = safeText(event.address);
+        if (venue || address) {
+          const venueEl = document.createElement('p');
+          venueEl.className = 'itinerary-card__venue';
+          if (venue) {
+            const strong = document.createElement('strong');
+            strong.textContent = venue;
+            venueEl.appendChild(strong);
+            if (address) {
+              venueEl.appendChild(document.createElement('br'));
+            }
+          }
+          if (address) {
+            venueEl.appendChild(document.createTextNode(address));
+          }
+          card.appendChild(venueEl);
+        }
+
+        const actionsContainer = document.createElement('div');
+        actionsContainer.className = 'itinerary-card__actions';
+        card.appendChild(actionsContainer);
+
+        const url = safeText(event.url);
+        if (url) {
+          const linkEl = document.createElement('a');
+          linkEl.className = 'button button--primary';
+          linkEl.href = url;
+          linkEl.target = '_blank';
+          linkEl.rel = 'noreferrer noopener';
+          linkEl.textContent = 'View details';
+          actionsContainer.appendChild(linkEl);
+        }
+
+        const calendarUrl = buildCalendarUrl(event);
+        if (calendarUrl) {
+          const calendarLink = document.createElement('a');
+          calendarLink.className = 'button button--secondary';
+          calendarLink.href = calendarUrl;
+          calendarLink.target = '_blank';
+          calendarLink.rel = 'noreferrer noopener';
+          calendarLink.textContent = 'Add to Google Calendar';
+          actionsContainer.appendChild(calendarLink);
+        }
+
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'button button--tertiary';
+        removeButton.textContent = 'Remove from itinerary';
+        removeButton.addEventListener('click', () => {
+          const nextItems = items.filter((item) => item.savedAt !== event.savedAt);
+          writeItinerary(nextItems);
+          items.splice(0, items.length, ...nextItems);
+          card.remove();
+          refreshEmptyState(nextItems);
+        });
+
+        actionsContainer.appendChild(removeButton);
+
+        return card;
+      };
+
+      let itinerary = readItinerary();
+      if (!Array.isArray(itinerary)) {
+        itinerary = [];
+      }
+
+      refreshEmptyState(itinerary);
+
+      if (itinerary.length === 0) {
+        return;
+      }
+
+      itinerary
+        .slice()
+        .sort((a, b) => new Date(b.savedAt || 0) - new Date(a.savedAt || 0))
+        .forEach((event) => {
+          const card = renderEventCard(event, itinerary);
+          listEl.appendChild(card);
+        });
+    })();
+  </script>
+</body>
+
+</html>

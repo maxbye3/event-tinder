@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import TinderCard from 'react-tinder-card';
+import './styles/event-card.css';
 
 const DEFAULT_FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1529333166437-7750a6dd5a70?auto=format&fit=crop&w=1200&q=80';
@@ -34,6 +35,90 @@ const TRUSTED_UNSPLASH_HOSTS = new Set([
   'plus.unsplash.com',
   'source.unsplash.com',
 ]);
+
+const ITINERARY_STORAGE_KEY = 'event-tinder-itinerary';
+
+const toOptionalString = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const buildEventKey = (event) => {
+  const parts = [
+    toOptionalString(event?.title) ?? 'saved event',
+    toOptionalString(event?.date) ?? '',
+    toOptionalString(event?.time) ?? '',
+    toOptionalString(event?.venue) ?? '',
+  ];
+  return parts
+    .map((part) => part.toLowerCase())
+    .join('::');
+};
+
+const readItineraryFromStorage = () => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(ITINERARY_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn('Failed to read itinerary from storage', error);
+    return [];
+  }
+};
+
+const writeItineraryToStorage = (items) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(items));
+  } catch (error) {
+    console.error('Failed to write itinerary to storage', error);
+  }
+};
+
+const sanitizeEventForStorage = (event, safeImage) => ({
+  title: toOptionalString(event?.title) ?? 'Saved event',
+  date: toOptionalString(event?.date),
+  time: toOptionalString(event?.time),
+  venue: toOptionalString(event?.venue),
+  address: toOptionalString(event?.address),
+  description: toOptionalString(event?.description),
+  url: toOptionalString(event?.url),
+  type: toOptionalString(event?.type),
+  image: toOptionalString(safeImage),
+});
+
+const addEventToItinerary = (event, safeImage) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const sanitized = sanitizeEventForStorage(event, safeImage);
+  const keyToAdd = buildEventKey(sanitized);
+  const existing = readItineraryFromStorage();
+
+  if (existing.some((stored) => buildEventKey(stored) === keyToAdd)) {
+    return;
+  }
+
+  existing.push({
+    ...sanitized,
+    savedAt: new Date().toISOString(),
+  });
+  writeItineraryToStorage(existing);
+};
 
 const normalizeType = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
 
@@ -133,11 +218,18 @@ const EventSwipe = ({ events, isLoading }) => {
     const translateX = stackLayer * 18;
     const translateY = stackLayer * 12;
 
+    const handleSwipe = (direction) => {
+      setLastSwipe({ direction, title });
+      if (direction === 'right') {
+        addEventToItinerary(event, safeImage);
+      }
+    };
+
     return (
       <TinderCard
         className="swipe"
         key={`${title}-${date}-${index}`}
-        onSwipe={(direction) => setLastSwipe({ direction, title })}
+        onSwipe={handleSwipe}
         preventSwipe={['up', 'down']}
       >
         <div
@@ -147,7 +239,7 @@ const EventSwipe = ({ events, isLoading }) => {
             transform: `translate(${translateX}px, ${translateY}px)`,
           }}
         >
-          <article className="event-card">
+          <article className={`event-card ${index % 2 === 0 ? 'event-card--primary' : 'event-card--secondary'}`}>
             <div
               className="event-card__image"
               style={{
@@ -184,7 +276,26 @@ const EventSwipe = ({ events, isLoading }) => {
 
   return (
     <section className="swipe-section">
-      <h2 className="swipe-section__title">Swipe through upcoming picks</h2>
+      {lastSwipe && (
+        <p className="swipe-section__info">
+          {lastSwipe.direction === 'left' ? (
+            <>
+              <strong>{lastSwipe.title}</strong> is not your thing...
+            </>
+          ) : lastSwipe.direction === 'right' ? (
+            <>
+              <strong>{lastSwipe.title}</strong> has been added to your{' '}
+              <a className="swipe-section__link" href="/itinerary">
+                itinerary
+              </a>
+            </>
+          ) : (
+            <>
+              You swiped {lastSwipe.direction} on <strong>{lastSwipe.title}</strong>
+            </>
+          )}
+        </p>
+      )}
       <div className="swipe-container">
         {hasEvents ? items.map(renderCard) : (
           <div className="event-card event-card--empty">
@@ -192,11 +303,7 @@ const EventSwipe = ({ events, isLoading }) => {
           </div>
         )}
       </div>
-      {lastSwipe && (
-        <p className="swipe-section__info">
-          You swiped {lastSwipe.direction} on <strong>{lastSwipe.title}</strong>
-        </p>
-      )}
+
     </section>
   );
 };
