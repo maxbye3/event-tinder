@@ -89,30 +89,34 @@ const App = () => {
 
   return (
     <main className="app">
-      <form className="app__form" onSubmit={handleSubmit}>
-        <h1 className="app__title">What are you doing today?</h1>
-        <label className="app__label app__label--hidden" htmlFor="search-input">
-          Describe the events you want to find
-        </label>
-        <div className="app__controls">
-          <input
-            className="app__input"
-            id="search-input"
-            type="text"
-            value={inputValue}
-            onChange={(event) => setInputValue(event.target.value)}
-            placeholder="e.g. free outdoor concerts in DC this weekend"
-          />
-          <button
-            className="app__button"
-            type="submit"
-            disabled={loading}
-          >
-            {loading ? 'Searching…' : 'Search'}
-          </button>
-        </div>
-      </form>
-      <EventSwipe events={eventsForDeck} isLoading={loading} />
+      
+        <form className="app__form" onSubmit={handleSubmit}>
+          <h1 className="app__title">What are you doing today?</h1>
+          <label className="app__label app__label--hidden" htmlFor="search-input">
+            Describe the events you want to find
+          </label>
+          <div className="app__controls">
+            <input
+              className="app__input"
+              id="search-input"
+              type="text"
+              value={inputValue}
+              onChange={(event) => setInputValue(event.target.value)}
+              placeholder="e.g. free outdoor concerts in DC this weekend"
+            />
+            {/* make work */}
+            <button
+              className="app__button button button--primary"
+              type="submit"
+              disabled={loading}
+            >
+              {loading ? 'Searching…' : 'Search'}
+            </button>
+          </div>
+        </form>
+        <EventSwipe events={eventsForDeck} isLoading={loading} />
+ 
+      <section class="agent-response">
       <button
         className="app__toggle app__toggle--primary"
         type="button"
@@ -140,6 +144,7 @@ const App = () => {
           )}
         </section>
       ) : null}
+      </section>
     </main>
   );
 };

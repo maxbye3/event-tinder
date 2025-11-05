@@ -16,7 +16,7 @@
   height: 100%;
   border-radius: 1.25rem;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  border: 1px solid rgba(148, 163, 184);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
   background: #ffffff;
   display: flex;
@@ -48,11 +48,6 @@
 .event-card--secondary .event-card__venue,
 .event-card--secondary .event-card__description {
   color: #270695;
-}
-
-.event-card--primary .event-card__header h2,
-.event-card--secondary .event-card__header h2 {
-  color: currentColor;
 }
 
 .event-card__image {
@@ -93,6 +88,9 @@
 }
 
 .event-card__header h2 {
+  color: #ff00cc;
+   /* color: #00e8ff; */
+  text-shadow: 2px 2px #6961ff;
   margin: 0;
   font-size: 1.2rem;
   line-height: 1.3;
@@ -111,6 +109,10 @@
   margin: 0;
   font-size: 0.95rem;
   color: #1f2937;
+  font-family: 'League Spartan', 'Orbitron Extra', sans-serif;
+  font-weight: 700;
+  padding-bottom: 15px;
+  border-bottom: 1px solid red;
 }
 
 .event-card__description {
@@ -118,16 +120,20 @@
   color: #374151;
   font-size: 0.95rem;
   line-height: 1.4;
+  font-family: 'League Spartan', 'Orbitron Extra', sans-serif;
+  font-weight: 700;
   flex: 1;
 }
 
-.event-card__link {
+.event-card__link { 
   align-self: flex-start;
-  margin-top: auto;
+  margin-top: 10px;
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   text-decoration: none;
   font-weight: 600;
+  text-shadow: 1px 1px yellow;
+  box-shadow: 3px -3px yellow;
 }
 
 .event-card--primary .event-card__link {
@@ -154,4 +160,38 @@
   text-align: center;
   font-weight: 600;
   color: #1f2937;
+}
+
+@media (max-width: 640px) {
+  .event-card-wrapper {
+    height: 100%;
+    padding-bottom: 1.25rem;
+  }
+
+  .event-card {
+    border-radius: 1rem;
+    max-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .event-card__image {
+    padding: 0.75rem;
+    min-height: 200px;
+  }
+
+  .event-card__body {
+    padding: 1rem;
+    gap: 0.65rem;
+  }
+
+  .event-card__header h2 {
+    font-size: 1.05rem;
+  }
+
+  .event-card__meta,
+  .event-card__venue,
+  .event-card__description {
+    font-size: 0.9rem;
+  }
 }

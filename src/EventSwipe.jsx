@@ -261,10 +261,11 @@ const EventSwipe = ({ events, isLoading }) => {
                 <br />
                 <span>{address ?? ''}</span>
               </p>
+            
               {description ? <p className="event-card__description">{description}</p> : null}
               {url ? (
                 <a className="event-card__link" href={url} target="_blank" rel="noreferrer">
-                  View details
+                  VIEW DETAILS
                 </a>
               ) : null}
             </div>

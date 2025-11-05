@@ -44,7 +44,7 @@ body {
 .itinerary__empty {
   margin: 0;
   padding: 1rem;
- border-radius: 0.5rem;
+  border-radius: 0.5rem;
   background: rgba(37, 99, 235, 0.18);
   color: #9bb4ff;
 }
@@ -56,6 +56,21 @@ body {
   margin: 1.25rem 0 1.5rem;
   padding: 0;
   list-style: none;
+}
+
+.itinerary__email-button {
+  width: 100%;
+  margin: 0 0 1.25rem;
+  text-transform: uppercase;
+  color: #000000;
+  background: #ff00cc;
+}
+
+.itinerary__email-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+  text-shadow: none;
 }
 
 .itinerary-card {
@@ -104,12 +119,14 @@ body {
   justify-content: center;
   padding: 0.55rem 1.1rem;
   border-radius: 0.5rem;
-  border: 2px solid transparent;
+  border-right: 2px solid transparent;
+  border-top: 2px solid transparent;
   font-weight: 600;
-  font-family: 'Orbitron Extra', sans-serif;
   cursor: pointer;
   text-decoration: none;
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+  text-shadow: 2px 1px #ffff00;
+  box-shadow: 2px -2px #ffff00;
 }
 
 .button:hover {
@@ -117,9 +134,9 @@ body {
 }
 
 .button--primary {
-  background: #270695;
   border-color: #270695;
-  color: #d90b5d;
+  background-color: #00e8ff;
+  color: #ff00cc;
 }
 
 .button--primary:hover {
@@ -129,27 +146,27 @@ body {
 }
 
 .button--secondary {
-  background: #ffff00;
-  border-color: #ffff00;
-  color: #270695;
+  background: #3613ac;
+  border-color: #3613ac;
+  color: #f01370;
 }
 
 .button--secondary:hover {
-  background: #fff44d;
-  border-color: #fff44d;
+  background: #f01370;
+  border-color: #f6a905;
   color: #3613ac;
 }
 
 .button--tertiary {
   background: #d90b5d;
   border-color: #d90b5d;
-  color: #ffff00;
+  color: #3613ac;
 }
 
 .button--tertiary:hover {
-  background: #f01370;
+  background: #f6a905;
   border-color: #f01370;
-  color: #fff66d;
+  color: #3613ac;
 }
 
 .itinerary__footer {
@@ -159,9 +176,9 @@ body {
 }
 
 .itinerary__footer a {
-  color: #6961ff;
+  color: #d90b5d;
   font-weight: 600;
-  text-decoration: none;
+  text-decoration: underline;
 }
 
 .itinerary__footer a:hover {

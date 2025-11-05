@@ -7,7 +7,7 @@
   <title>Your Event Itinerary</title>
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <link rel="stylesheet" href="/themes/background-grid.css" />
-  <link rel="stylesheet" href="/itinerary/styles.css" />
+  <link rel="stylesheet" href="/itinerary/itinerary-page.css" />
 </head>
 
 <body>
@@ -20,15 +20,20 @@
       No saved events yet. Swipe right on things you love to build your plan.
     </div>
     <div class="itinerary__list" data-itinerary-list></div>
+    <button class="button button--primary itinerary__email-button" type="button" data-email-itinerary>
+      Send itinerary to email
+    </button>
     <p class="itinerary__footer">
       Ready for more? Head back to the <a href="/">event feed</a> to keep exploring.
     </p>
   </main>
+  <script src="/itinerary/EmailItinerary.js"></script>
   <script>
     (function () {
       const STORAGE_KEY = 'event-tinder-itinerary';
       const listEl = document.querySelector('[data-itinerary-list]');
       const emptyEl = document.querySelector('[data-itinerary-empty]');
+      const emailButton = document.querySelector('[data-email-itinerary]');
 
       if (!listEl || !emptyEl) {
         return;
@@ -245,6 +250,13 @@
         emptyEl.hidden = items.length > 0;
       };
 
+      const updateEmailButtonState = (items) => {
+        if (!emailButton) {
+          return;
+        }
+        emailButton.disabled = items.length === 0;
+      };
+
       const renderEventCard = (event, items) => {
         const card = document.createElement('article');
         card.className = 'itinerary-card';
@@ -306,7 +318,7 @@
           actionsContainer.appendChild(calendarLink);
         }
 
-        const removeButton = document.createElement('button');
+        const removeButton = document.createElement('a');
         removeButton.type = 'button';
         removeButton.className = 'button button--tertiary';
         removeButton.textContent = 'Remove from itinerary';
@@ -316,6 +328,7 @@
           items.splice(0, items.length, ...nextItems);
           card.remove();
           refreshEmptyState(nextItems);
+          updateEmailButtonState(nextItems);
         });
 
         actionsContainer.appendChild(removeButton);
@@ -329,18 +342,26 @@
       }
 
       refreshEmptyState(itinerary);
+      updateEmailButtonState(itinerary);
 
-      if (itinerary.length === 0) {
-        return;
+      if (itinerary.length > 0) {
+        itinerary
+          .slice()
+          .sort((a, b) => new Date(b.savedAt || 0) - new Date(a.savedAt || 0))
+          .forEach((event) => {
+            const card = renderEventCard(event, itinerary);
+            listEl.appendChild(card);
+          });
       }
 
-      itinerary
-        .slice()
-        .sort((a, b) => new Date(b.savedAt || 0) - new Date(a.savedAt || 0))
-        .forEach((event) => {
-          const card = renderEventCard(event, itinerary);
-          listEl.appendChild(card);
+      if (emailButton) {
+        emailButton.addEventListener('click', () => {
+          const items = readItinerary();
+          if (window.EmailItinerary && typeof window.EmailItinerary.send === 'function') {
+            window.EmailItinerary.send(items);
+          }
         });
+      }
     })();
   </script>
 </body>
