@@ -34,11 +34,16 @@ body {
   width: min(100%, 60ch);
 }
 
-.app__form {
+.app--today {
+  width: min(100%, 520px);
+}
+
+.app__home-header {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .app__title {
@@ -51,37 +56,17 @@ body {
   text-transform: uppercase;
 }
 
-.app__label {
-  font-weight: 600;
-}
-
-.app__label--hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
-.app__controls {
-  display: flex;
-  align-items: center;
-  gap: 0;
-  width: 100%;
-}
-
-.app__input {
-  flex: 1 1 12rem;
-  min-width: 0;
-  padding: 0.75rem;
-  border-radius: 0.5rem 0 0 0.5rem;
-  border: 1px solid #d1d5db;
+.app__subtitle {
+  margin: 0.25rem 0 0;
+  color: #e9ecff;
+  font-family: 'League Spartan', Arial, sans-serif;
   font-size: 1rem;
-  font-family: 'League Spartan', 'Orbitron Extra', sans-serif;
+}
+
+.app__home-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
 }
 
 .button {
@@ -130,92 +115,39 @@ body {
   color: #3613ac;
 }
 
-.app__button {
-  flex: 0 0 auto;
-  border-radius: 0 0.5rem 0.5rem 0;
-  border-left: none;
-      background-color: #d90b5d;
-    color: #270695;
+.app__mode-link,
+.app__refresh {
+  border: 2px solid #270695;
+  border-radius: 0.5rem;
+  background-color: #00e8ff;
+  box-shadow: 2px -2px #ffff00;
+  color: #270695;
+  cursor: pointer;
+  font-family: 'Orbitron Extra', sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0.7rem 0.85rem;
+  text-decoration: none;
+  text-shadow: 2px 1px #ffff00;
+  text-transform: uppercase;
 }
 
-.app__button:disabled {
+.app__refresh:disabled {
   opacity: 0.75;
   cursor: wait;
   pointer-events: none;
 }
 
-.app__button:disabled:hover {
-  transform: none;
-}
-
-.app__toggle {
-  margin: 1.5rem 0 1rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1.4rem;
+.app__error {
+  border: 2px solid #ff0021;
   border-radius: 0.5rem;
-  border: 2px solid transparent;
-  font-family: 'Orbitron Extra', sans-serif;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-}
-
-.app__toggle:focus-visible {
-  outline: 3px solid rgba(105, 97, 255, 0.6);
-  outline-offset: 2px;
-}
-
-.app__toggle--primary {
-  background: #270695;
-  border-color: #270695;
-  color: #d90b5d;
-}
-
-.app__toggle--primary:hover {
-  background: #3613ac;
-  border-color: #3613ac;
-  color: #f01370;
-}
-
-.app__agent {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-bottom: 2rem;
-}
-
-.app__agent-meta {
-  margin: 0;
-  color: #4b5563;
-}
-
-.app__agent-status {
-  margin: 0;
-  color: #6961ff;
-}
-
-.app__agent-error {
-  margin: 0;
-  color: #ff0021;
-  font-weight: 600;
-}
-
-.app__agent-output {
-  text-align: left;
-  margin: 0;
   background: #111827;
-  color: #f9fafb;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  white-space: pre-wrap;
-  font-family: 'Fira Code', 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 0.9rem;
-  line-height: 1.5;
+  color: #ffffff;
+  font-family: 'League Spartan', Arial, sans-serif;
+  font-weight: 800;
+  margin: 0 0 1rem;
+  padding: 0.8rem;
 }
 
 .swipe-section {
@@ -243,10 +175,192 @@ body {
   justify-content: center;
 }
 
-.agent-response {
-    text-align: center;
-    margin-top: 100px;
-    border-top: 2px solid white;
+.today-page {
+  width: min(100%, 860px);
+  margin: 0 auto;
+  color: #111827;
+  font-family: 'League Spartan', Arial, sans-serif;
+}
+
+.today-page__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 0;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.16);
+}
+
+.today-page__back {
+  color: #b91c1c;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.today-page h1 {
+  margin: 0.35rem 0 0.25rem;
+  color: #111827;
+  font-family: 'League Spartan', Arial, sans-serif;
+  font-size: clamp(2rem, 7vw, 4rem);
+  line-height: 0.95;
+}
+
+.today-page__header p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 1.1rem;
+}
+
+.today-page__refresh,
+.today-event__link {
+  border: 1px solid #111827;
+  border-radius: 6px;
+  background: #111827;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0.75rem 1rem;
+  text-decoration: none;
+}
+
+.today-page__refresh:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.today-page__sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.today-page__source {
+  border: 1px solid rgba(17, 24, 39, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 700;
+  padding: 0.4rem 0.65rem;
+}
+
+.today-page__error,
+.today-page__status,
+.today-page__empty {
+  border: 1px solid rgba(17, 24, 39, 0.16);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.88);
+  margin: 1rem 0;
+  padding: 1rem;
+}
+
+.today-page__error {
+  border-color: #b91c1c;
+  color: #b91c1c;
+  font-weight: 800;
+}
+
+.today-page__empty h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.3rem;
+}
+
+.today-page__empty p {
+  margin: 0;
+}
+
+.today-page__list {
+  display: grid;
+  gap: 0.75rem;
+  padding-bottom: 2rem;
+}
+
+.today-event {
+  display: grid;
+  grid-template-columns: 132px 1fr;
+  overflow: hidden;
+  border: 1px solid rgba(17, 24, 39, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.today-event__image {
+  width: 100%;
+  height: 100%;
+  min-height: 150px;
+  object-fit: cover;
+  background: #e5e7eb;
+}
+
+.today-event__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.85rem;
+}
+
+.today-event__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.today-event__meta span {
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 0.28rem 0.5rem;
+  text-transform: capitalize;
+}
+
+.today-event h2 {
+  margin: 0;
+  color: #111827;
+  font-family: 'League Spartan', Arial, sans-serif;
+  font-size: clamp(1.25rem, 5vw, 1.8rem);
+  line-height: 1;
+}
+
+.today-event__venue,
+.today-event__description {
+  margin: 0;
+  color: #374151;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.today-event__description {
+  color: #4b5563;
+}
+
+@media (max-width: 640px) {
+  #root {
+    padding: 1rem;
+  }
+
+  .today-page__header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .today-page__refresh {
+    width: 100%;
+  }
+
+  .today-event {
+    grid-template-columns: 1fr;
+  }
+
+  .today-event__image {
+    aspect-ratio: 16 / 9;
+    min-height: 0;
+  }
 }
 
 @media (max-width: 640px) {
@@ -288,14 +402,13 @@ body {
 }
 
 @media (max-width: 640px) {
-  .app__controls {
-    flex-wrap: wrap;
-        margin-top: 20px;
-    border-radius: 5px;
+  .app__home-header {
+    align-items: stretch;
+    flex-direction: column;
   }
 
-  .app__button {
-    width: 100%;
-    text-align: center;
+  .app__home-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 }
