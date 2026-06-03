@@ -2,6 +2,34 @@ import { useEffect, useMemo, useState } from 'react';
 import EventSwipe from './EventSwipe';
 import TodayDcPage from './TodayDcPage';
 
+const UNSPLASH_HOSTS = new Set([
+  'images.unsplash.com',
+  'plus.unsplash.com',
+  'source.unsplash.com',
+]);
+
+const hasRetrievedImage = (event) => {
+  if (typeof event?.image !== 'string') {
+    return false;
+  }
+
+  try {
+    const { protocol, hostname } = new URL(event.image);
+    return (protocol === 'http:' || protocol === 'https:') && !UNSPLASH_HOSTS.has(hostname);
+  } catch {
+    return false;
+  }
+};
+
+const sortEventsForDisplay = (events) => [...events].sort((a, b) => {
+  const imageRank = Number(hasRetrievedImage(b)) - Number(hasRetrievedImage(a));
+  if (imageRank !== 0) return imageRank;
+
+  const left = a?.startsAt ? new Date(a.startsAt).getTime() : Number.MAX_SAFE_INTEGER;
+  const right = b?.startsAt ? new Date(b.startsAt).getTime() : Number.MAX_SAFE_INTEGER;
+  return left - right;
+});
+
 const formatRange = (meta) => {
   if (!meta?.rangeStart || !meta?.rangeEnd) {
     return 'Today until 2:00 AM';
@@ -60,7 +88,7 @@ const App = () => {
   }, [refreshKey]);
 
   const events = useMemo(() => (
-    Array.isArray(payload?.events) ? payload.events : []
+    sortEventsForDisplay(Array.isArray(payload?.events) ? payload.events : [])
   ), [payload]);
 
   return (
