@@ -46,6 +46,11 @@ body {
   margin-bottom: 1rem;
 }
 
+.app--today .app__home-header {
+  margin-top: 1rem;
+  margin-bottom: 0;
+}
+
 .app__title {
   text-shadow: 5px 2px red;
   margin: 0;
@@ -56,17 +61,97 @@ body {
   text-transform: uppercase;
 }
 
-.app__subtitle {
+.app__title span,
+.today-page h1 span {
+  color: #00e8ff;
+}
+
+.app__subtitle,
+.app__range {
   margin: 0.25rem 0 0;
   color: #e9ecff;
   font-family: 'League Spartan', Arial, sans-serif;
   font-size: 1rem;
 }
 
+.app__range {
+  font-size: 0.9rem;
+  opacity: 0.82;
+}
+
+.app__day-picker,
+.today-page__day-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 11.5rem;
+  margin-top: 0;
+  border: 2px solid #111827;
+  border-radius: 6px;
+  background: #ffffff;
+  box-shadow: 2px 2px 0 #111827;
+  color: #111827;
+  cursor: pointer;
+  font-family: 'Orbitron Extra', sans-serif;
+  line-height: 1;
+  padding: 0.6rem 0.75rem;
+  text-shadow: none;
+  text-transform: uppercase;
+}
+
+.app__day-picker::after,
+.today-page__day-picker::after {
+  content: "CAL";
+  border-left: 2px solid rgba(17, 24, 39, 0.24);
+  font-size: 0.75rem;
+  margin-left: 0.8rem;
+  padding-left: 0.65rem;
+}
+
+.app__day-picker span,
+.today-page__day-picker span {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.app__day-picker small,
+.today-page__day-picker small {
+  font-family: 'League Spartan', Arial, sans-serif;
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.app__day-picker strong,
+.today-page__day-picker strong {
+  font-size: 1rem;
+}
+
+.app__day-picker input,
+.today-page__day-picker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.app__day-picker input::-webkit-calendar-picker-indicator,
+.today-page__day-picker input::-webkit-calendar-picker-indicator {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
 .app__home-actions {
   display: flex;
-  align-items: flex-end;
-  gap: 0.5rem;
+  align-items: stretch;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .button {
@@ -116,7 +201,9 @@ body {
 }
 
 .app__mode-link,
-.app__refresh {
+.app__refresh,
+.app__instructions-button,
+.app__itinerary-link {
   border: 2px solid #270695;
   border-radius: 0.5rem;
   background-color: #00e8ff;
@@ -131,6 +218,50 @@ body {
   text-decoration: none;
   text-shadow: 2px 1px #ffff00;
   text-transform: uppercase;
+}
+
+.app__home-actions .app__mode-link,
+.app__home-actions .app__refresh,
+.app__home-actions .app__instructions-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.app__mode-link {
+  border-color: #111827;
+  background: #111827;
+  box-shadow: 2px 2px 0 #ffffff;
+  color: #ffffff;
+  text-shadow: none;
+}
+
+.app__mode-link:hover {
+  background: #374151;
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.app__itinerary-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.85rem;
+  background: #d90b5d;
+  color: #ffff00;
+  text-shadow: 2px 1px #270695;
+}
+
+.app__itinerary-divider {
+  width: 100%;
+  height: 3px;
+  margin: 0.85rem 0;
+  background: #ffffff;
+}
+
+.app__home-actions .app__day-picker {
+  box-sizing: border-box;
 }
 
 .app__refresh:disabled {
@@ -150,9 +281,171 @@ body {
   padding: 0.8rem;
 }
 
+.swipe-instructions {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.68);
+  padding: 1rem;
+}
+
+.swipe-instructions__panel {
+  width: min(calc(100vw - 2rem), 420px);
+  border: 2px solid #270695;
+  border-radius: 8px;
+  background: #00e8ff;
+  box-shadow: 4px -4px #ffff00;
+  color: #270695;
+  padding: 1.1rem;
+  text-shadow: 1px 1px #ffff00;
+}
+
+.swipe-instructions__eyebrow {
+  margin: 0 0 0.35rem;
+  font-family: 'League Spartan', Arial, sans-serif;
+  font-size: 0.8rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.swipe-instructions h2 {
+  margin: 0;
+  font-family: 'Phosphate Solid', 'Orbitron Extra', sans-serif;
+  font-size: clamp(1.4rem, 6vw, 2rem);
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.swipe-instructions__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+  margin: 1rem 0;
+}
+
+.swipe-instructions__action {
+  position: relative;
+  min-height: 8.5rem;
+  border: 2px solid #270695;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 0.75rem;
+  overflow: hidden;
+}
+
+.swipe-instructions__action svg {
+  position: absolute;
+  inset: 0.35rem 0.35rem auto auto;
+  width: min(44%, 5.6rem);
+  height: auto;
+  fill: none;
+  stroke: #006dff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 9;
+  opacity: 0.95;
+  pointer-events: none;
+}
+
+.swipe-instructions__action--left svg {
+  inset: 0.35rem auto auto 0.35rem;
+}
+
+.swipe-instructions__actions strong,
+.swipe-instructions__actions span {
+  position: relative;
+  z-index: 1;
+  display: block;
+}
+
+.swipe-instructions__actions strong {
+  margin-top: 4.7rem;
+  font-size: 0.92rem;
+  text-transform: uppercase;
+}
+
+.swipe-instructions__actions span {
+  margin-top: 0.25rem;
+  font-family: 'League Spartan', Arial, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.swipe-instructions button {
+  width: 100%;
+  border: 2px solid #270695;
+  border-radius: 6px;
+  background: #d90b5d;
+  box-shadow: 2px -2px #ffff00;
+  color: #270695;
+  cursor: pointer;
+  font-family: 'Orbitron Extra', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 900;
+  padding: 0.75rem 1rem;
+  text-shadow: 1px 1px #ffff00;
+  text-transform: uppercase;
+}
+
+.add-event-form {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.add-event-form label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.add-event-form label span {
+  font-family: 'League Spartan', Arial, sans-serif;
+  font-size: 0.9rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.add-event-form textarea,
+.add-event-form input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 2px solid #270695;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.82);
+  color: #270695;
+  font: 900 1rem 'League Spartan', Arial, sans-serif;
+  padding: 0.65rem;
+}
+
+.add-event-form textarea {
+  min-height: 8rem;
+  resize: vertical;
+}
+
+.add-event-form__captcha {
+  grid-template-columns: 1fr 7rem;
+  align-items: center;
+}
+
+.add-event-form__error {
+  margin: 0;
+  color: #d90b5d;
+  font-family: 'League Spartan', Arial, sans-serif;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+
+.add-event-form__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
 .swipe-section {
   width: min(420px, 100%);
-  margin: 0 auto 2rem;
+  margin: 0 auto;
 }
 
 .swipe-section__title {
@@ -164,6 +457,47 @@ body {
   position: relative;
   width: 100%;
   height: clamp(500px, 80vh, 640px);
+  contain: layout style;
+  isolation: isolate;
+}
+
+.swipe-hints {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.swipe-hints__item {
+  display: grid;
+  gap: 0.15rem;
+  place-items: center;
+  color: #00e8ff;
+  font-family: 'Orbitron Extra', sans-serif;
+  font-size: 0.64rem;
+  text-shadow: 1px 1px #270695;
+  text-transform: uppercase;
+}
+
+.swipe-hints__item svg {
+  width: clamp(3.8rem, 16vw, 5.8rem);
+  fill: none;
+  stroke: #00e8ff;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 9;
+  filter: drop-shadow(2px 2px 0 #270695);
+}
+
+.swipe-hints__item--left {
+  margin-left: -2.9rem;
+}
+
+.swipe-hints__item--right {
+  margin-right: -2.9rem;
 }
 
 .swipe {
@@ -173,6 +507,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .today-page {
@@ -199,10 +536,11 @@ body {
 
 .today-page h1 {
   margin: 0.35rem 0 0.25rem;
-  color: #111827;
+  color: #e9ecff;
   font-family: 'League Spartan', Arial, sans-serif;
   font-size: clamp(2rem, 7vw, 4rem);
   line-height: 0.95;
+  text-shadow: 2px 2px #270695;
 }
 
 .today-page__header p {
@@ -211,8 +549,21 @@ body {
   font-size: 1.1rem;
 }
 
+.today-page__controls {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.today-page__day-picker {
+  margin-bottom: 0.55rem;
+}
+
 .today-page__refresh,
-.today-event__link {
+.today-page__itinerary-button,
+.today-event__link,
+.today-event__add {
   border: 1px solid #111827;
   border-radius: 6px;
   background: #111827;
@@ -225,9 +576,27 @@ body {
   text-decoration: none;
 }
 
-.today-page__refresh:disabled {
+.today-page__itinerary-button {
+  min-width: 10rem;
+  margin-bottom: 0.55rem;
+  background: #00e8ff;
+  border-color: #270695;
+  color: #270695;
+  font-family: 'Orbitron Extra', sans-serif;
+  text-shadow: 1px 1px #ffff00;
+  text-transform: uppercase;
+}
+
+.today-page__refresh:disabled,
+.today-page__itinerary-button:disabled,
+.today-event__add:disabled {
   cursor: wait;
   opacity: 0.65;
+}
+
+.today-page__itinerary-button:disabled,
+.today-event__add:disabled {
+  cursor: not-allowed;
 }
 
 .today-page__sources {
@@ -339,6 +708,22 @@ body {
   color: #4b5563;
 }
 
+.today-event__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.today-event__add {
+  background: #d90b5d;
+  border-color: #270695;
+  color: #ffff00;
+  font-family: 'Orbitron Extra', sans-serif;
+  text-shadow: 1px 1px #270695;
+  text-transform: uppercase;
+}
+
 @media (max-width: 640px) {
   #root {
     padding: 1rem;
@@ -350,6 +735,17 @@ body {
   }
 
   .today-page__refresh {
+    width: 100%;
+  }
+
+  .today-page__controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .today-page__day-picker,
+  .today-page__itinerary-button {
+    min-width: 0;
     width: 100%;
   }
 
@@ -367,27 +763,80 @@ body {
   .swipe-section {
     width: 100%;
     margin: 0 0 1.5rem;
-    padding-inline: clamp(0.75rem, 4vw, 1.25rem);
-    margin-left: -25px;
-    width: 85%;
+    padding-inline: 0;
   }
 
   .swipe-container {
-    height: clamp(520px, 90vh, 700px);
+    height: clamp(540px, 88vh, 720px);
   }
 
   .swipe {
     align-items: stretch;
+    touch-action: none;
+  }
+
+  .swipe-hints__item svg {
+    width: 3.6rem;
+  }
+
+  .swipe-hints__item--left {
+    margin-left: -2.2rem;
+  }
+
+  .swipe-hints__item--right {
+    margin-right: -2.2rem;
   }
 }
 
 .swipe-section__info {
-  margin-top: 1rem;
-  color: #4b5563;
-  font-size: 0.95rem;
-      background: #00e8ff;
-    padding: 10px;
-    color: #3613ac;
+  position: fixed;
+  top: max(0.75rem, env(safe-area-inset-top));
+  z-index: 1000;
+  width: fit-content;
+  max-width: min(calc(50vw - 1.25rem), 260px);
+  margin: 0;
+  border: 2px solid #270695;
+  border-radius: 6px;
+  box-shadow: 2px -2px #ffff00;
+  color: #3613ac;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  background: #00e8ff;
+  padding: 0.42rem 0.55rem;
+  text-shadow: 1px 1px #ffff00;
+  animation: swipe-toast-lifecycle 2.8s ease forwards;
+  pointer-events: none;
+  text-align: left;
+}
+
+.swipe-section__info--left {
+  left: max(0.75rem, env(safe-area-inset-left));
+}
+
+.swipe-section__info--right {
+  right: max(0.75rem, env(safe-area-inset-right));
+}
+
+.swipe-section__info strong {
+  display: inline;
+}
+
+@keyframes swipe-toast-lifecycle {
+  0% {
+    opacity: 0;
+    transform: translateY(-0.75rem);
+  }
+
+  12%,
+  76% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-0.75rem);
+  }
 }
 
 .swipe-section__link {
@@ -395,6 +844,7 @@ body {
   text-decoration: underline !important;
   font-weight: 900;
   text-decoration: none;
+  pointer-events: auto;
 }
 
 .swipe-section__link:hover {
@@ -409,6 +859,44 @@ body {
 
   .app__home-actions {
     display: grid;
+    gap: 0.75rem;
     grid-template-columns: 1fr 1fr;
+  }
+
+  .app__itinerary-link {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .app__home-actions .app__day-picker {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .app__home-actions .app__mode-link {
+    width: 100%;
+  }
+
+  .app__home-actions .app__refresh {
+    grid-column: auto;
+  }
+
+  .app__home-actions .app__instructions-button {
+    grid-column: auto;
+  }
+
+  .swipe-section__info {
+    top: max(0.65rem, env(safe-area-inset-top));
+    max-width: min(calc(50vw - 0.9rem), 180px);
+    font-size: 0.62rem;
+    padding: 0.35rem 0.48rem;
+  }
+
+  .swipe-section__info--left {
+    left: max(0.5rem, env(safe-area-inset-left));
+  }
+
+  .swipe-section__info--right {
+    right: max(0.5rem, env(safe-area-inset-right));
   }
 }

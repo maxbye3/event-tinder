@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import TinderCard from 'react-tinder-card';
 import './styles/event-card.css';
 
@@ -37,6 +37,7 @@ const TRUSTED_UNSPLASH_HOSTS = new Set([
 ]);
 
 const ITINERARY_STORAGE_KEY = 'event-tinder-itinerary';
+const MAX_RENDERED_CARDS = 3;
 
 const toOptionalString = (value) => {
   if (typeof value !== 'string') {
@@ -102,7 +103,7 @@ const sanitizeEventForStorage = (event, safeImage) => ({
 
 const addEventToItinerary = (event, safeImage) => {
   if (typeof window === 'undefined') {
-    return;
+    return [];
   }
 
   const sanitized = sanitizeEventForStorage(event, safeImage);
@@ -110,7 +111,7 @@ const addEventToItinerary = (event, safeImage) => {
   const existing = readItineraryFromStorage();
 
   if (existing.some((stored) => buildEventKey(stored) === keyToAdd)) {
-    return;
+    return existing;
   }
 
   existing.push({
@@ -118,6 +119,7 @@ const addEventToItinerary = (event, safeImage) => {
     savedAt: new Date().toISOString(),
   });
   writeItineraryToStorage(existing);
+  return existing;
 };
 
 const normalizeType = (value) => (typeof value === 'string' ? value.trim().toLowerCase() : '');
@@ -180,8 +182,11 @@ const isValidImageUrl = (value) => {
   }
 };
 
-const EventSwipe = ({ events, isLoading }) => {
+const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange }) => {
   const [lastSwipe, setLastSwipe] = useState(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const pendingItineraryRef = useRef(null);
+  const previousItemKeysRef = useRef([]);
 
   const items = useMemo(() => {
     if (!Array.isArray(events)) {
@@ -190,13 +195,55 @@ const EventSwipe = ({ events, isLoading }) => {
     return events;
   }, [events]);
 
+  useEffect(() => {
+    const previousKeys = previousItemKeysRef.current;
+    const currentKeys = items.map((event) => buildEventKey(event));
+
+    if (previousKeys.length > 0 && activeIndex > 0) {
+      const currentKeySet = new Set(currentKeys);
+      const removedBeforeActiveIndex = previousKeys
+        .slice(0, activeIndex)
+        .filter((key) => !currentKeySet.has(key))
+        .length;
+
+      if (removedBeforeActiveIndex > 0) {
+        setActiveIndex((currentIndex) => Math.max(0, currentIndex - removedBeforeActiveIndex));
+      }
+    }
+
+    previousItemKeysRef.current = currentKeys;
+  }, [activeIndex, items]);
+
   const hasEvents = items.length > 0;
+  const activeEvent = hasEvents && activeIndex < items.length ? items[activeIndex] : null;
+  const visibleItems = useMemo(() => (
+    items
+      .slice(activeIndex, activeIndex + MAX_RENDERED_CARDS)
+      .map((event, visibleIndex) => ({
+        event,
+        originalIndex: activeIndex + visibleIndex,
+        visibleIndex,
+      }))
+  ), [activeIndex, items]);
 
   useEffect(() => {
     setLastSwipe(null);
-  }, [events]);
+    setActiveIndex(0);
+  }, [feedKey]);
 
-  const renderCard = (event, index) => {
+  useEffect(() => {
+    if (!lastSwipe) {
+      return undefined;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setLastSwipe(null);
+    }, 2800);
+
+    return () => window.clearTimeout(timeout);
+  }, [lastSwipe]);
+
+  const renderCard = ({ event, originalIndex, visibleIndex }) => {
     const {
       title,
       image,
@@ -214,32 +261,42 @@ const EventSwipe = ({ events, isLoading }) => {
       : selectFallbackImage(event);
     const typeLabel = typeof type === 'string' && type.length > 0 ? type : 'event';
 
-    const stackLayer = Math.min(index, 4);
-    const translateX = stackLayer * 18;
-    const translateY = stackLayer * 12;
+    const translateX = 0;
+    const translateY = visibleIndex * 8;
+    const scale = 1 - visibleIndex * 0.035;
 
     const handleSwipe = (direction) => {
       setLastSwipe({ direction, title });
       if (direction === 'right') {
-        addEventToItinerary(event, safeImage);
+        const itinerary = addEventToItinerary(event, safeImage);
+        pendingItineraryRef.current = itinerary;
+      }
+    };
+
+    const handleCardLeftScreen = () => {
+      setActiveIndex((currentIndex) => Math.max(currentIndex, originalIndex + 1));
+      if (pendingItineraryRef.current) {
+        onItineraryChange?.(pendingItineraryRef.current);
+        pendingItineraryRef.current = null;
       }
     };
 
     return (
       <TinderCard
         className="swipe"
-        key={`${title}-${date}-${index}`}
+        key={`${title}-${date}-${originalIndex}`}
         onSwipe={handleSwipe}
+        onCardLeftScreen={handleCardLeftScreen}
         preventSwipe={['up', 'down']}
       >
         <div
           className="event-card-wrapper"
           style={{
-            zIndex: items.length - index,
-            transform: `translate(${translateX}px, ${translateY}px)`,
+            zIndex: MAX_RENDERED_CARDS - visibleIndex,
+            transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`,
           }}
         >
-          <article className={`event-card ${index % 2 === 0 ? 'event-card--primary' : 'event-card--secondary'}`}>
+          <article className={`event-card ${originalIndex % 2 === 0 ? 'event-card--primary' : 'event-card--secondary'}`}>
             <div
               className="event-card__image"
               style={{
@@ -263,11 +320,6 @@ const EventSwipe = ({ events, isLoading }) => {
               </p>
             
               {description ? <p className="event-card__description">{description}</p> : null}
-              {url ? (
-                <a className="event-card__link" href={url} target="_blank" rel="noreferrer">
-                  VIEW DETAILS
-                </a>
-              ) : null}
             </div>
           </article>
         </div>
@@ -278,7 +330,11 @@ const EventSwipe = ({ events, isLoading }) => {
   return (
     <section className="swipe-section">
       {lastSwipe && (
-        <p className="swipe-section__info">
+        <p
+          className={`swipe-section__info swipe-section__info--${lastSwipe.direction}`}
+          role="status"
+          aria-live="polite"
+        >
           {lastSwipe.direction === 'left' ? (
             <>
               <strong>{lastSwipe.title}</strong> is not your thing...
@@ -298,11 +354,39 @@ const EventSwipe = ({ events, isLoading }) => {
         </p>
       )}
       <div className="swipe-container">
-        {hasEvents ? items.map(renderCard) : (
+        {hasEvents && activeIndex < items.length ? (
+          <div className="swipe-hints" aria-hidden="true">
+            <div className="swipe-hints__item swipe-hints__item--left">
+              <svg viewBox="0 0 120 92">
+                <path d="M28 14c34 2 62 20 70 45 4 13-2 24-16 25-24 2-49-11-65-29" />
+                <path d="M43 36L15 54l22 27" />
+              </svg>
+              <span>Nope</span>
+            </div>
+            <div className="swipe-hints__item swipe-hints__item--right">
+              <svg viewBox="0 0 120 92">
+                <path d="M92 14C58 16 30 34 22 59c-4 13 2 24 16 25 24 2 49-11 65-29" />
+                <path d="M77 36l28 18-22 27" />
+              </svg>
+              <span>Interested</span>
+            </div>
+          </div>
+        ) : null}
+        {hasEvents && activeIndex < items.length ? [...visibleItems].reverse().map(renderCard) : (
           <div className="event-card event-card--empty">
             <p>{isLoading ? 'Fetching events…' : 'No events to show yet. Try a new search.'}</p>
           </div>
         )}
+        {activeEvent?.url ? (
+          <a
+            className="event-card__link swipe-container__details"
+            href={activeEvent.url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            VIEW DETAILS
+          </a>
+        ) : null}
       </div>
 
     </section>

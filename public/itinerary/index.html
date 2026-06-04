@@ -12,6 +12,7 @@
 
 <body>
   <main class="itinerary">
+    <a class="itinerary__back" href="/">Back</a>
     <h1>YOUR ITINERARY</h1>
     <p class="itinerary__intro">
       These are the events you added by swiping right. Keep this tab open while you explore.
@@ -20,9 +21,11 @@
       No saved events yet. Swipe right on things you love to build your plan.
     </div>
     <div class="itinerary__list" data-itinerary-list></div>
-    <button class="button button--primary itinerary__email-button" type="button" data-email-itinerary>
-      Send itinerary to email
-    </button>
+    <div class="itinerary__email-bar">
+      <button class="button button--primary itinerary__email-button" type="button" data-email-itinerary>
+        Send to email
+      </button>
+    </div>
     <p class="itinerary__footer">
       Ready for more? Head back to the <a href="/">event feed</a> to keep exploring.
     </p>
@@ -153,6 +156,12 @@
         ].join('');
       };
 
+      const escapeIcsText = (value) => safeText(value)
+        .replace(/\\/g, '\\\\')
+        .replace(/\n/g, '\\n')
+        .replace(/,/g, '\\,')
+        .replace(/;/g, '\\;');
+
       const buildCalendarDetails = (event) => {
         const lines = [];
         const meta = createMetaText(event);
@@ -174,11 +183,7 @@
         return lines.join('\n\n');
       };
 
-      const buildCalendarUrl = (event) => {
-        const params = new URLSearchParams({ action: 'TEMPLATE' });
-        const title = safeText(event.title, 'Saved event');
-        params.set('text', title);
-
+      const getEventCalendarRange = (event) => {
         const baseDate = parseDateOnly(event.date);
         const range = parseTimeRange(event.time);
         let startDateTime = null;
@@ -209,6 +214,58 @@
           endDateTime = end;
         }
 
+        return { startDateTime, endDateTime };
+      };
+
+      const buildIcsHref = (event) => {
+        const { startDateTime, endDateTime } = getEventCalendarRange(event);
+        const startToken = startDateTime ? formatForCalendar(startDateTime) : null;
+        const endToken = endDateTime ? formatForCalendar(endDateTime) : null;
+
+        if (!startToken || !endToken) {
+          return null;
+        }
+
+        const locationParts = [safeText(event.venue), safeText(event.address)].filter((chunk) => chunk);
+        const details = buildCalendarDetails(event);
+        const uid = `${safeText(event.savedAt, String(Date.now()))}-${safeText(event.title, 'event')}`
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '');
+        const nowToken = formatForCalendar(new Date());
+        const lines = [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'PRODID:-//Event Tinder//DC Edition//EN',
+          'CALSCALE:GREGORIAN',
+          'METHOD:PUBLISH',
+          'BEGIN:VEVENT',
+          `UID:${uid || Date.now()}@event-tinder`,
+          `DTSTAMP:${nowToken}`,
+          `DTSTART:${startToken}`,
+          `DTEND:${endToken}`,
+          `SUMMARY:${escapeIcsText(safeText(event.title, 'Saved event'))}`,
+        ];
+
+        if (details) {
+          lines.push(`DESCRIPTION:${escapeIcsText(details)}`);
+        }
+
+        if (locationParts.length > 0) {
+          lines.push(`LOCATION:${escapeIcsText(locationParts.join(', '))}`);
+        }
+
+        lines.push('END:VEVENT', 'END:VCALENDAR');
+
+        return `data:text/calendar;charset=utf-8,${encodeURIComponent(lines.join('\r\n'))}`;
+      };
+
+      const buildCalendarUrl = (event) => {
+        const params = new URLSearchParams({ action: 'TEMPLATE' });
+        const title = safeText(event.title, 'Saved event');
+        params.set('text', title);
+
+        const { startDateTime, endDateTime } = getEventCalendarRange(event);
         const startToken = startDateTime ? formatForCalendar(startDateTime) : null;
         const endToken = endDateTime ? formatForCalendar(endDateTime) : null;
 
@@ -236,6 +293,176 @@
         params.set('sf', 'true');
 
         return `https://calendar.google.com/calendar/render?${params.toString()}`;
+      };
+
+      const buildOutlookUrl = (event) => {
+        const { startDateTime, endDateTime } = getEventCalendarRange(event);
+        if (!startDateTime || !endDateTime) {
+          return null;
+        }
+
+        const params = new URLSearchParams();
+        params.set('path', '/calendar/action/compose');
+        params.set('rru', 'addevent');
+        params.set('subject', safeText(event.title, 'Saved event'));
+        params.set('startdt', startDateTime.toISOString());
+        params.set('enddt', endDateTime.toISOString());
+
+        const details = buildCalendarDetails(event);
+        if (details) {
+          params.set('body', details);
+        }
+
+        const locationParts = [safeText(event.venue), safeText(event.address)].filter((chunk) => chunk);
+        if (locationParts.length > 0) {
+          params.set('location', locationParts.join(', '));
+        }
+
+        return `https://outlook.live.com/calendar/0/deeplink/compose?${params.toString()}`;
+      };
+
+      const buildYahooUrl = (event) => {
+        const { startDateTime, endDateTime } = getEventCalendarRange(event);
+        const startToken = startDateTime ? formatForCalendar(startDateTime).replace(/00Z$/, '00Z') : null;
+        if (!startDateTime || !endDateTime || !startToken) {
+          return null;
+        }
+
+        const durationMinutes = Math.max(30, Math.round((endDateTime - startDateTime) / 60000));
+        const hours = String(Math.floor(durationMinutes / 60)).padStart(2, '0');
+        const minutes = String(durationMinutes % 60).padStart(2, '0');
+        const params = new URLSearchParams();
+        params.set('v', '60');
+        params.set('title', safeText(event.title, 'Saved event'));
+        params.set('st', startToken);
+        params.set('dur', `${hours}${minutes}`);
+
+        const details = buildCalendarDetails(event);
+        if (details) {
+          params.set('desc', details);
+        }
+
+        const locationParts = [safeText(event.venue), safeText(event.address)].filter((chunk) => chunk);
+        if (locationParts.length > 0) {
+          params.set('in_loc', locationParts.join(', '));
+        }
+
+        return `https://calendar.yahoo.com/?${params.toString()}`;
+      };
+
+      const clearModal = () => {
+        document.querySelector('[data-itinerary-modal]')?.remove();
+      };
+
+      const createModal = (title) => {
+        clearModal();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'itinerary-modal';
+        overlay.dataset.itineraryModal = 'true';
+
+        const panel = document.createElement('section');
+        panel.className = 'itinerary-modal__panel';
+        panel.setAttribute('role', 'dialog');
+        panel.setAttribute('aria-modal', 'true');
+        panel.setAttribute('aria-label', title);
+        overlay.appendChild(panel);
+
+        const heading = document.createElement('h2');
+        heading.textContent = title;
+        panel.appendChild(heading);
+
+        const actions = document.createElement('div');
+        actions.className = 'itinerary-modal__actions';
+        panel.appendChild(actions);
+
+        const closeButton = document.createElement('button');
+        closeButton.className = 'button button--tertiary';
+        closeButton.type = 'button';
+        closeButton.textContent = 'Close';
+        closeButton.addEventListener('click', clearModal);
+        panel.appendChild(closeButton);
+
+        overlay.addEventListener('click', (clickEvent) => {
+          if (clickEvent.target === overlay) {
+            clearModal();
+          }
+        });
+
+        document.body.appendChild(overlay);
+
+        return actions;
+      };
+
+      const appendModalLink = (container, label, href, options = {}) => {
+        if (!href) {
+          return;
+        }
+
+        const link = document.createElement('a');
+        link.className = 'button button--primary';
+        link.href = href;
+        link.textContent = label;
+
+        if (options.download) {
+          link.download = options.download;
+        } else {
+          link.target = '_blank';
+          link.rel = 'noreferrer noopener';
+        }
+
+        container.appendChild(link);
+      };
+
+      const openCalendarModal = (event) => {
+        const actions = createModal('Add to calendar');
+        const icsHref = buildIcsHref(event);
+        const icsDownloadName = `${safeText(event.title, 'event').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'event'}.ics`;
+
+        appendModalLink(actions, 'Apple / Outlook', icsHref, { download: icsDownloadName });
+        appendModalLink(actions, 'Google', buildCalendarUrl(event));
+        appendModalLink(actions, 'Outlook.com', buildOutlookUrl(event));
+        appendModalLink(actions, 'Yahoo', buildYahooUrl(event));
+      };
+
+      const createShareText = (event) => {
+        const parts = [
+          safeText(event.title, 'Saved event'),
+          createMetaText(event),
+          [safeText(event.venue), safeText(event.address)].filter((chunk) => chunk).join(', '),
+          safeText(event.url),
+        ].filter((chunk) => chunk);
+
+        return parts.join('\n');
+      };
+
+      const copyShareText = async (event) => {
+        const text = createShareText(event);
+        try {
+          await navigator.clipboard.writeText(safeText(event.url) || text);
+          return true;
+        } catch {
+          return false;
+        }
+      };
+
+      const shareEvent = async (event) => {
+        if (navigator.share) {
+          try {
+            await navigator.share({
+              title: safeText(event.title, 'DC Event Tinder event'),
+              text: createShareText(event),
+              url: safeText(event.url) || window.location.href,
+            });
+            return;
+          } catch (shareError) {
+            if (shareError?.name !== 'AbortError') {
+              console.warn('Native share failed', shareError);
+            }
+          }
+        }
+
+        await copyShareText(event);
       };
 
       const writeItinerary = (nextItems) => {
@@ -305,23 +532,19 @@
           linkEl.rel = 'noreferrer noopener';
           linkEl.textContent = 'View details';
           actionsContainer.appendChild(linkEl);
+        } else {
+          const detailsButton = document.createElement('button');
+          detailsButton.className = 'button button--primary';
+          detailsButton.type = 'button';
+          detailsButton.disabled = true;
+          detailsButton.textContent = 'View details';
+          actionsContainer.appendChild(detailsButton);
         }
 
-        const calendarUrl = buildCalendarUrl(event);
-        if (calendarUrl) {
-          const calendarLink = document.createElement('a');
-          calendarLink.className = 'button button--secondary';
-          calendarLink.href = calendarUrl;
-          calendarLink.target = '_blank';
-          calendarLink.rel = 'noreferrer noopener';
-          calendarLink.textContent = 'Add to Google Calendar';
-          actionsContainer.appendChild(calendarLink);
-        }
-
-        const removeButton = document.createElement('a');
+        const removeButton = document.createElement('button');
         removeButton.type = 'button';
         removeButton.className = 'button button--tertiary';
-        removeButton.textContent = 'Remove from itinerary';
+        removeButton.textContent = 'Remove';
         removeButton.addEventListener('click', () => {
           const nextItems = items.filter((item) => item.savedAt !== event.savedAt);
           writeItinerary(nextItems);
@@ -332,6 +555,20 @@
         });
 
         actionsContainer.appendChild(removeButton);
+
+        const calendarButton = document.createElement('button');
+        calendarButton.type = 'button';
+        calendarButton.className = 'button button--secondary';
+        calendarButton.textContent = 'Add to calendar';
+        calendarButton.addEventListener('click', () => openCalendarModal(event));
+        actionsContainer.appendChild(calendarButton);
+
+        const shareButton = document.createElement('button');
+        shareButton.type = 'button';
+        shareButton.className = 'button button--primary';
+        shareButton.textContent = 'Share';
+        shareButton.addEventListener('click', () => shareEvent(event));
+        actionsContainer.appendChild(shareButton);
 
         return card;
       };

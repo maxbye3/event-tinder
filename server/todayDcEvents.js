@@ -52,7 +52,7 @@ const TYPE_IMAGES = {
   other: 'https://images.unsplash.com/photo-1466978913421-dad2ebd01d17?auto=format&fit=crop&w=1200&q=80',
 };
 
-let cache = null;
+const cache = new Map();
 
 const getZonedParts = (date, timeZone = DC_TIME_ZONE) => {
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -109,9 +109,34 @@ const formatDate = ({ year, month, day }) => {
   return `${year}-${two(month)}-${two(day)}`;
 };
 
-const getTodayWindow = () => {
-  const now = new Date();
-  const today = getZonedParts(now);
+const isDateLabel = (value) => (
+  typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)
+);
+
+const normalizeDateLabel = (value) => {
+  if (Array.isArray(value)) {
+    return normalizeDateLabel(value[0]);
+  }
+  return isDateLabel(value) ? value : null;
+};
+
+const parseDateLabel = (value) => {
+  if (!isDateLabel(value)) return null;
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  return { year, month, day };
+};
+
+const getTodayWindow = (dateLabel) => {
+  const realNow = new Date();
+  const realToday = getZonedParts(realNow);
+  const selected = parseDateLabel(dateLabel) ?? realToday;
+  const selectedLabel = formatDate(selected);
+  const realTodayLabel = formatDate(realToday);
+  const now = selectedLabel === realTodayLabel
+    ? realNow
+    : zonedTimeToUtc({ ...selected, hour: 0 });
+  const today = selected;
   const tomorrow = addDays(today, 1);
   const end = zonedTimeToUtc({ ...tomorrow, hour: 2 });
 
@@ -923,8 +948,24 @@ const isInWindow = (event, window) => {
 const dedupeEvents = (events) => {
   const byKey = new Map();
 
+  const normalizeDedupeText = (value) => text(value)
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/\bw\/\b/g, ' with ')
+    .replace(/\bft\.\b/g, ' featuring ')
+    .replace(/\bfeat\.\b/g, ' featuring ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\b(the|a|an)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const dedupeKey = (event) => [
+    normalizeDedupeText(event.title),
+    text(event.date),
+  ].join('|');
+
   for (const event of events) {
-    const key = [event.title, event.venue, event.date].map((value) => text(value).toLowerCase()).join('|');
+    const key = dedupeKey(event);
     if (!byKey.has(key)) {
       byKey.set(key, event);
       continue;
@@ -937,6 +978,10 @@ const dedupeEvents = (events) => {
       source: Array.from(new Set([current.source, event.source].filter(Boolean))).join(' + '),
       image: current.image && current.image !== FALLBACK_IMAGE ? current.image : event.image,
       description: current.description?.length > event.description?.length ? current.description : event.description,
+      venue: current.venue || event.venue,
+      address: current.address || event.address,
+      time: current.time || event.time,
+      startsAt: current.startsAt || event.startsAt,
     });
   }
 
@@ -952,9 +997,26 @@ const sortEvents = (events) => events.sort((a, b) => {
   return left - right;
 });
 
-const runSource = async (source, fetcher) => {
+const withTimeout = async (promise, timeoutMs) => {
+  if (!timeoutMs) {
+    return promise;
+  }
+
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('timeout')), timeoutMs);
+  });
+
   try {
-    const events = await fetcher();
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+const runSource = async (source, fetcher, timeoutMs) => {
+  try {
+    const events = await withTimeout(fetcher(), timeoutMs);
     return { source, status: 'ok', events };
   } catch (error) {
     return {
@@ -964,6 +1026,20 @@ const runSource = async (source, fetcher) => {
     };
   }
 };
+
+const buildEventSources = (window) => [
+  { source: 'Ticketmaster', fetcher: () => fetchTicketmasterEvents(window), phase: 'full' },
+  { source: 'Eventbrite', fetcher: () => fetchEventbriteEvents(window), phase: 'full' },
+  { source: 'Meetup', fetcher: fetchMeetupEvents, phase: 'fast' },
+  { source: 'Clockout DC', fetcher: () => fetchClockoutEvents(window), phase: 'fast' },
+  { source: 'Washington.org', fetcher: () => fetchWashingtonOrgEvents(window), phase: 'fast' },
+  { source: 'Adams Morgan', fetcher: () => fetchAdamsMorganEvents(window), phase: 'full' },
+  { source: 'Washingtonian', fetcher: () => fetchWashingtonianEvents(window), phase: 'fast' },
+  { source: 'Luma', fetcher: fetchLumaEvents, phase: 'full' },
+  { source: 'DowntownDC', fetcher: () => fetchDowntownDcEvents(window), phase: 'full' },
+  { source: 'NGA Calendar', fetcher: () => fetchNgaEvents(window), phase: 'full' },
+  { source: 'Smithsonian', fetcher: fetchSmithsonianEvents, phase: 'full' },
+];
 
 const fetchTicketmasterEvents = async (window) => {
   const apiKey = process.env.TICKETMASTER_API_KEY;
@@ -1119,33 +1195,31 @@ const fetchSmithsonianEvents = async () => {
     .map(normalizeSmithsonianEvent);
 };
 
-export const getTodayDcEvents = async () => {
+export const getTodayDcEvents = async ({ date, phase = 'full' } = {}) => {
   const now = Date.now();
-  if (cache && now - cache.createdAt < CACHE_TTL_MS) {
+  const dateLabel = normalizeDateLabel(date);
+  const normalizedPhase = phase === 'fast' ? 'fast' : 'full';
+  const cacheKey = `${dateLabel ?? 'today'}:${normalizedPhase}`;
+  const cached = cache.get(cacheKey);
+  if (cached && now - cached.createdAt < CACHE_TTL_MS) {
     return {
-      ...cache.payload,
+      ...cached.payload,
       meta: {
-        ...cache.payload.meta,
+        ...cached.payload.meta,
         cached: true,
-        cacheAgeSeconds: Math.round((now - cache.createdAt) / 1000),
+        cacheAgeSeconds: Math.round((now - cached.createdAt) / 1000),
       },
     };
   }
 
-  const window = getTodayWindow();
-  const sourceResults = await Promise.all([
-    runSource('Ticketmaster', () => fetchTicketmasterEvents(window)),
-    runSource('Eventbrite', () => fetchEventbriteEvents(window)),
-    runSource('Meetup', fetchMeetupEvents),
-    runSource('Clockout DC', () => fetchClockoutEvents(window)),
-    runSource('Washington.org', () => fetchWashingtonOrgEvents(window)),
-    runSource('Adams Morgan', () => fetchAdamsMorganEvents(window)),
-    runSource('Washingtonian', () => fetchWashingtonianEvents(window)),
-    runSource('Luma', fetchLumaEvents),
-    runSource('DowntownDC', () => fetchDowntownDcEvents(window)),
-    runSource('NGA Calendar', () => fetchNgaEvents(window)),
-    runSource('Smithsonian', fetchSmithsonianEvents),
-  ]);
+  const window = getTodayWindow(dateLabel);
+  const eventSources = buildEventSources(window)
+    .filter((source) => normalizedPhase === 'full' || source.phase === 'fast');
+  const sourceResults = await Promise.all(
+    eventSources.map(({ source, fetcher }) => (
+      runSource(source, fetcher, normalizedPhase === 'fast' ? 6000 : null)
+    )),
+  );
 
   const filteredSourceResults = sourceResults.map((source) => ({
     ...source,
@@ -1164,6 +1238,7 @@ export const getTodayDcEvents = async () => {
       rangeEnd: window.end.toISOString(),
       today: window.todayLabel,
       cached: false,
+      phase: normalizedPhase,
       sourceStatus: filteredSourceResults.map(({ source, status, events: sourceEvents }) => ({
         source,
         status,
@@ -1172,6 +1247,6 @@ export const getTodayDcEvents = async () => {
     },
   };
 
-  cache = { createdAt: now, payload };
+  cache.set(cacheKey, { createdAt: now, payload });
   return payload;
 };

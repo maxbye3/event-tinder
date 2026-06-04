@@ -8,6 +8,9 @@
   pointer-events: none;
   overflow: visible;
   transition: transform 0.2s ease, opacity 0.2s ease;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+  will-change: transform;
 }
 
 .event-card {
@@ -22,6 +25,8 @@
   display: flex;
   flex-direction: column;
   pointer-events: auto;
+  backface-visibility: hidden;
+  contain: layout paint style;
 }
 
 .event-card--primary {
@@ -59,6 +64,7 @@
   align-items: flex-start;
   justify-content: flex-end;
   padding: 1rem;
+  transform: translateZ(0);
 }
 
 .event-card--primary .event-card__type {
@@ -126,14 +132,21 @@
 }
 
 .event-card__link { 
-  align-self: flex-start;
-  margin-top: 10px;
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   text-decoration: none;
   font-weight: 600;
   text-shadow: 1px 1px yellow;
   box-shadow: 3px -3px yellow;
+}
+
+.swipe-container__details {
+  position: absolute;
+  left: 1.25rem;
+  bottom: 1.5rem;
+  z-index: 10;
+  background-color: #d90b5d;
+  color: #270695;
 }
 
 .event-card--primary .event-card__link {
@@ -165,11 +178,12 @@
 @media (max-width: 640px) {
   .event-card-wrapper {
     height: 100%;
-    padding-bottom: 1.25rem;
+    padding-bottom: 0.75rem;
   }
 
   .event-card {
     border-radius: 1rem;
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.14);
     max-height: 100%;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -183,6 +197,7 @@
   .event-card__body {
     padding: 1rem;
     gap: 0.65rem;
+    padding-bottom: 4rem;
   }
 
   .event-card__header h2 {
@@ -193,5 +208,10 @@
   .event-card__venue,
   .event-card__description {
     font-size: 0.9rem;
+  }
+
+  .swipe-container__details {
+    left: 1rem;
+    bottom: 1.25rem;
   }
 }

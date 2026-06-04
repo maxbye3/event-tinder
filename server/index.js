@@ -5,9 +5,9 @@ import { getTodayDcEvents } from './todayDcEvents.js';
 const app = express();
 const port = process.env.PORT ?? 3001;
 
-app.get('/api/today-dc-events', async (_req, res) => {
+app.get('/api/today-dc-events', async (req, res) => {
   try {
-    const payload = await getTodayDcEvents();
+    const payload = await getTodayDcEvents({ date: req.query.date, phase: req.query.phase });
     res.status(200).json(payload);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';

@@ -19,6 +19,62 @@ const UNSPLASH_HOSTS = new Set([
   'source.unsplash.com',
 ]);
 
+const ITINERARY_STORAGE_KEY = 'event-tinder-itinerary';
+
+const toOptionalString = (value) => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const buildEventKey = (event) => [
+  toOptionalString(event?.title) ?? 'saved event',
+  toOptionalString(event?.date) ?? '',
+  toOptionalString(event?.time) ?? '',
+  toOptionalString(event?.venue) ?? '',
+]
+  .map((part) => part.toLowerCase())
+  .join('::');
+
+const readItineraryFromStorage = () => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(ITINERARY_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const writeItineraryToStorage = (items) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  window.sessionStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(items));
+};
+
+const sanitizeEventForStorage = (event, safeImage) => ({
+  title: toOptionalString(event?.title) ?? 'Saved event',
+  date: toOptionalString(event?.date),
+  time: toOptionalString(event?.time),
+  venue: toOptionalString(event?.venue),
+  address: toOptionalString(event?.address),
+  description: toOptionalString(event?.description),
+  url: toOptionalString(event?.url),
+  type: toOptionalString(event?.type),
+  image: toOptionalString(safeImage),
+});
+
 const hasRetrievedImage = (event) => {
   if (typeof event?.image !== 'string') {
     return false;
@@ -41,34 +97,41 @@ const sortEventsForDisplay = (events) => [...events].sort((a, b) => {
   return left - right;
 });
 
-const formatRange = (meta) => {
-  if (!meta?.rangeStart || !meta?.rangeEnd) {
-    return 'Today until 2:00 AM';
+const getDcDateValue = () => {
+  const values = {};
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+
+  for (const part of formatter.formatToParts(new Date())) {
+    if (part.type !== 'literal') {
+      values[part.type] = part.value;
+    }
   }
 
-  const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: meta.timeZone ?? 'America/New_York',
+  return `${values.year}-${values.month}-${values.day}`;
+};
+
+const formatDateChoice = (dateValue) => {
+  const [year, month, day] = dateValue.split('-').map(Number);
+  const parsed = new Date(Date.UTC(year, month - 1, day, 12));
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'UTC',
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-
-  return `${formatter.format(new Date(meta.rangeStart))} - ${formatter.format(new Date(meta.rangeEnd))}`;
-};
-
-const sourceLabel = (status) => {
-  if (status === 'ok') return 'on';
-  if (status === 'missing_key') return 'needs key';
-  return status ?? 'off';
+  }).format(parsed);
 };
 
 const TodayDcPage = () => {
   const [payload, setPayload] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedDate, setSelectedDate] = useState(getDcDateValue);
+  const [itinerary, setItinerary] = useState(readItineraryFromStorage);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -76,7 +139,9 @@ const TodayDcPage = () => {
     setLoading(true);
     setError(null);
 
-    fetch('/api/today-dc-events', { signal: controller.signal })
+    const params = new URLSearchParams({ date: selectedDate });
+
+    fetch(`/api/today-dc-events?${params}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) {
           throw new Error(`Request failed with status ${response.status}`);
@@ -98,41 +163,70 @@ const TodayDcPage = () => {
       });
 
     return () => controller.abort();
-  }, [refreshKey]);
+  }, [selectedDate]);
 
   const events = useMemo(() => (
     sortEventsForDisplay(Array.isArray(payload?.events) ? payload.events : [])
   ), [payload]);
 
-  const sourceStatus = Array.isArray(payload?.meta?.sourceStatus)
-    ? payload.meta.sourceStatus
-    : [];
+  const itineraryKeys = useMemo(() => (
+    new Set(itinerary.map((item) => buildEventKey(item)))
+  ), [itinerary]);
+
+  const addToItinerary = (event) => {
+    const safeImage = event.image || fallbackImageFor(event.type);
+    const sanitized = sanitizeEventForStorage(event, safeImage);
+    const keyToAdd = buildEventKey(sanitized);
+
+    if (itineraryKeys.has(keyToAdd)) {
+      return;
+    }
+
+    const nextItinerary = [
+      ...itinerary,
+      {
+        ...sanitized,
+        savedAt: new Date().toISOString(),
+      },
+    ];
+    writeItineraryToStorage(nextItinerary);
+    setItinerary(nextItinerary);
+  };
 
   return (
     <main className="today-page">
       <header className="today-page__header">
         <div>
           <a className="today-page__back" href="/">Back</a>
-          <h1>Today in DC</h1>
-          <p>{formatRange(payload?.meta)}</p>
+          <h1>
+            Event Tinder <span>DC Edition</span>
+          </h1>
+          <div className="today-page__controls">
+            <label className="today-page__day-picker">
+              <span>
+                <small>Choose day</small>
+                <strong>{formatDateChoice(selectedDate)}</strong>
+              </span>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(event) => setSelectedDate(event.target.value)}
+                aria-label="Choose event date"
+              />
+            </label>
+            <button
+              className="today-page__itinerary-button"
+              type="button"
+              disabled={itinerary.length === 0}
+              onClick={() => {
+                window.location.href = '/itinerary';
+              }}
+            >
+              See itinerary
+            </button>
+          </div>
         </div>
-        <button
-          className="today-page__refresh"
-          type="button"
-          onClick={() => setRefreshKey((value) => value + 1)}
-          disabled={loading}
-        >
-          {loading ? 'Loading' : 'Refresh'}
-        </button>
       </header>
-
-      <section className="today-page__sources" aria-label="Data sources">
-        {sourceStatus.map((source) => (
-          <span className="today-page__source" key={source.source}>
-            {source.source}: {sourceLabel(source.status)}
-          </span>
-        ))}
-      </section>
 
       {error ? <p className="today-page__error">{error}</p> : null}
 
@@ -172,11 +266,21 @@ const TodayDcPage = () => {
                 {event.address ? `, ${event.address}` : ''}
               </p>
               {event.description ? <p className="today-event__description">{event.description}</p> : null}
-              {event.url ? (
-                <a className="today-event__link" href={event.url} target="_blank" rel="noreferrer">
-                  Details
-                </a>
-              ) : null}
+              <div className="today-event__actions">
+                <button
+                  className="today-event__add"
+                  type="button"
+                  disabled={itineraryKeys.has(buildEventKey(event))}
+                  onClick={() => addToItinerary(event)}
+                >
+                  {itineraryKeys.has(buildEventKey(event)) ? 'In itinerary' : 'Add to itinerary'}
+                </button>
+                {event.url ? (
+                  <a className="today-event__link" href={event.url} target="_blank" rel="noreferrer">
+                    Details
+                  </a>
+                ) : null}
+              </div>
             </div>
           </article>
         ))}
