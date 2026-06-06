@@ -475,17 +475,16 @@ body {
   display: grid;
   gap: 0.15rem;
   place-items: center;
-  color: #00e8ff;
   font-family: 'Orbitron Extra', sans-serif;
   font-size: 0.64rem;
   text-shadow: 1px 1px #270695;
+  transform: translateY(-100px);
   text-transform: uppercase;
 }
 
 .swipe-hints__item svg {
   width: clamp(3.8rem, 16vw, 5.8rem);
   fill: none;
-  stroke: #00e8ff;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 9;
@@ -493,11 +492,21 @@ body {
 }
 
 .swipe-hints__item--left {
-  margin-left: -2.9rem;
+  color: #ff1744;
+  margin-left: 0.35rem;
+}
+
+.swipe-hints__item--left svg {
+  stroke: #ff1744;
 }
 
 .swipe-hints__item--right {
-  margin-right: -2.9rem;
+  color: #00e676;
+  margin-right: 0.35rem;
+}
+
+.swipe-hints__item--right svg {
+  stroke: #00e676;
 }
 
 .swipe {
@@ -780,11 +789,11 @@ body {
   }
 
   .swipe-hints__item--left {
-    margin-left: -2.2rem;
+    margin-left: 0.15rem;
   }
 
   .swipe-hints__item--right {
-    margin-right: -2.2rem;
+    margin-right: 0.15rem;
   }
 }
 

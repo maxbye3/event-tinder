@@ -182,11 +182,14 @@ const isValidImageUrl = (value) => {
   }
 };
 
-const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange }) => {
+const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEvent }) => {
   const [lastSwipe, setLastSwipe] = useState(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const pendingItineraryRef = useRef(null);
   const previousItemKeysRef = useRef([]);
+  const itinerarySyncTimeoutRef = useRef(null);
+  const eventVariantMapRef = useRef(new Map());
+  const nextVariantIndexRef = useRef(0);
 
   const items = useMemo(() => {
     if (!Array.isArray(events)) {
@@ -194,6 +197,16 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange }) => {
     }
     return events;
   }, [events]);
+
+  useEffect(() => {
+    for (const event of items) {
+      const key = buildEventKey(event);
+      if (!eventVariantMapRef.current.has(key)) {
+        eventVariantMapRef.current.set(key, nextVariantIndexRef.current);
+        nextVariantIndexRef.current += 1;
+      }
+    }
+  }, [items]);
 
   useEffect(() => {
     const previousKeys = previousItemKeysRef.current;
@@ -229,6 +242,8 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange }) => {
   useEffect(() => {
     setLastSwipe(null);
     setActiveIndex(0);
+    eventVariantMapRef.current = new Map();
+    nextVariantIndexRef.current = 0;
   }, [feedKey]);
 
   useEffect(() => {
@@ -242,6 +257,12 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange }) => {
 
     return () => window.clearTimeout(timeout);
   }, [lastSwipe]);
+
+  useEffect(() => () => {
+    if (itinerarySyncTimeoutRef.current) {
+      window.clearTimeout(itinerarySyncTimeoutRef.current);
+    }
+  }, []);
 
   const renderCard = ({ event, originalIndex, visibleIndex }) => {
     const {
@@ -264,20 +285,27 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange }) => {
     const translateX = 0;
     const translateY = visibleIndex * 8;
     const scale = 1 - visibleIndex * 0.035;
+    const variantIndex = eventVariantMapRef.current.get(buildEventKey(event)) ?? originalIndex;
 
     const handleSwipe = (direction) => {
       setLastSwipe({ direction, title });
       if (direction === 'right') {
         const itinerary = addEventToItinerary(event, safeImage);
         pendingItineraryRef.current = itinerary;
+      } else if (direction === 'left') {
+        onRejectEvent?.(event);
       }
     };
 
     const handleCardLeftScreen = () => {
       setActiveIndex((currentIndex) => Math.max(currentIndex, originalIndex + 1));
       if (pendingItineraryRef.current) {
-        onItineraryChange?.(pendingItineraryRef.current);
+        const itinerary = pendingItineraryRef.current;
         pendingItineraryRef.current = null;
+        itinerarySyncTimeoutRef.current = window.setTimeout(() => {
+          onItineraryChange?.(itinerary);
+          itinerarySyncTimeoutRef.current = null;
+        }, 220);
       }
     };
 
@@ -296,7 +324,7 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange }) => {
             transform: `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`,
           }}
         >
-          <article className={`event-card ${originalIndex % 2 === 0 ? 'event-card--primary' : 'event-card--secondary'}`}>
+          <article className={`event-card ${variantIndex % 2 === 0 ? 'event-card--primary' : 'event-card--secondary'}`}>
             <div
               className="event-card__image"
               style={{

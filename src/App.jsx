@@ -128,6 +128,7 @@ const formatDateChoice = (dateValue) => {
 const ADD_EVENT_EMAIL = 'botherandherobye@gmail.com';
 const ADD_EVENT_SUBJECT = 'DC Event Tinder: Add Event';
 const ITINERARY_STORAGE_KEY = 'event-tinder-itinerary';
+const REJECTED_EVENTS_STORAGE_KEY = 'event-tinder-rejected-events';
 const SELECTED_DATE_STORAGE_KEY = 'event-tinder-selected-date';
 
 const toOptionalString = (value) => {
@@ -158,6 +159,31 @@ const readItineraryFromStorage = () => {
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
+  }
+};
+
+const readRejectedEventsFromStorage = () => {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+
+  try {
+    const parsed = JSON.parse(window.sessionStorage.getItem(REJECTED_EVENTS_STORAGE_KEY) ?? '{}');
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeRejectedEventsToStorage = (itemsByDate) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(REJECTED_EVENTS_STORAGE_KEY, JSON.stringify(itemsByDate));
+  } catch {
+    // Ignore storage failures; rejected items still work for this session state.
   }
 };
 
@@ -196,6 +222,7 @@ const App = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedDate, setSelectedDate] = useState(readSelectedDateFromStorage);
   const [itineraryItems, setItineraryItems] = useState(readItineraryFromStorage);
+  const [rejectedEventsByDate, setRejectedEventsByDate] = useState(readRejectedEventsFromStorage);
   const [hasItineraryItems, setHasItineraryItems] = useState(hasItineraryItemsInStorage);
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [addEventMessage, setAddEventMessage] = useState('');
@@ -322,6 +349,7 @@ const App = () => {
   useEffect(() => {
     const syncItinerary = () => {
       handleItineraryChange(readItineraryFromStorage());
+      setRejectedEventsByDate(readRejectedEventsFromStorage());
     };
 
     window.addEventListener('focus', syncItinerary);
@@ -335,16 +363,52 @@ const App = () => {
 
   const events = useMemo(() => {
     const storedEventKeys = new Set(itineraryItems.map((item) => buildItineraryEventKey(item)));
+    const rejectedEventKeys = new Set(
+      Array.isArray(rejectedEventsByDate[selectedDate]) ? rejectedEventsByDate[selectedDate] : [],
+    );
     const unsavedEvents = (Array.isArray(payload?.events) ? payload.events : [])
-      .filter((event) => !storedEventKeys.has(buildItineraryEventKey(event)));
+      .filter((event) => {
+        const key = buildItineraryEventKey(event);
+        return !storedEventKeys.has(key) && !rejectedEventKeys.has(key);
+      });
 
     return sortEventsForDisplay(unsavedEvents);
-  }, [itineraryItems, payload]);
+  }, [itineraryItems, payload, rejectedEventsByDate, selectedDate]);
 
   const handleItineraryChange = (items) => {
     const nextItems = Array.isArray(items) ? items : [];
     setItineraryItems(nextItems);
     setHasItineraryItems(nextItems.length > 0);
+  };
+
+  const handleRejectEvent = (event) => {
+    const key = buildItineraryEventKey(event);
+    setRejectedEventsByDate((currentItemsByDate) => {
+      const existingKeys = Array.isArray(currentItemsByDate[selectedDate])
+        ? currentItemsByDate[selectedDate]
+        : [];
+
+      if (existingKeys.includes(key)) {
+        return currentItemsByDate;
+      }
+
+      const nextItemsByDate = {
+        ...currentItemsByDate,
+        [selectedDate]: [...existingKeys, key],
+      };
+      writeRejectedEventsToStorage(nextItemsByDate);
+      return nextItemsByDate;
+    });
+  };
+
+  const handleRefresh = () => {
+    setRejectedEventsByDate((currentItemsByDate) => {
+      const nextItemsByDate = { ...currentItemsByDate };
+      delete nextItemsByDate[selectedDate];
+      writeRejectedEventsToStorage(nextItemsByDate);
+      return nextItemsByDate;
+    });
+    setRefreshKey((value) => value + 1);
   };
 
   return (
@@ -393,6 +457,7 @@ const App = () => {
         isLoading={loading}
         feedKey={`${selectedDate}:${refreshKey}`}
         onItineraryChange={handleItineraryChange}
+        onRejectEvent={handleRejectEvent}
       />
 
       {error ? <p className="app__error">{error}</p> : null}
@@ -430,7 +495,7 @@ const App = () => {
           <button
             className="app__refresh"
             type="button"
-            onClick={() => setRefreshKey((value) => value + 1)}
+            onClick={handleRefresh}
             disabled={loading}
           >
             {loading ? 'Loading' : 'Refresh'}
