@@ -592,13 +592,20 @@
       }
 
       if (emailButton) {
-        emailButton.addEventListener('click', () => {
+        emailButton.addEventListener('click', async () => {
           const items = readItinerary();
           if (items.length === 0) {
             return;
           }
           if (window.EmailItinerary && typeof window.EmailItinerary.send === 'function') {
-            window.EmailItinerary.send(items);
+            const wasSent = await window.EmailItinerary.send(items);
+            if (wasSent) {
+              const previousText = emailButton.textContent;
+              emailButton.textContent = 'Email draft opened';
+              window.setTimeout(() => {
+                emailButton.textContent = previousText;
+              }, 2200);
+            }
           }
         });
       }

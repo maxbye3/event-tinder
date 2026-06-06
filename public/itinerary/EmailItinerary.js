@@ -36,21 +36,45 @@
     return lines.join('\n');
   };
 
-  const send = (itineraryItems) => {
-    const payload = Array.isArray(itineraryItems) ? itineraryItems : [];
-    if (payload.length === 0) {
-      return;
+  const createEmailBody = (payload) => [
+    'Here is my DC Event Tinder itinerary:',
+    '',
+    payload.map(formatEvent).join('\n\n'),
+    '',
+    'Built with Event Tinder DC Edition',
+  ].join('\n');
+
+  const copyToClipboard = async (value) => {
+    if (!global.navigator?.clipboard?.writeText) {
+      return false;
     }
 
-    const body = [
-      'Here is my DC Event Tinder itinerary:',
-      '',
-      payload.map(formatEvent).join('\n\n'),
-      '',
-      'Built with Event Tinder DC Edition',
-    ].join('\n');
+    try {
+      await global.navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      return false;
+    }
+  };
 
-    global.location.href = `mailto:?subject=${encodeURIComponent('DC Event Tinder Itinerary')}&body=${encodeURIComponent(body)}`;
+  const send = async (itineraryItems) => {
+    const payload = Array.isArray(itineraryItems) ? itineraryItems : [];
+    if (payload.length === 0) {
+      return false;
+    }
+
+    const body = createEmailBody(payload);
+    await copyToClipboard(body);
+
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent('DC Event Tinder Itinerary')}&body=${encodeURIComponent(body)}`;
+    const link = global.document.createElement('a');
+    link.href = mailtoUrl;
+    link.target = '_blank';
+    link.rel = 'noreferrer noopener';
+    global.document.body.appendChild(link);
+    link.click();
+    link.remove();
+    return true;
   };
 
   global.EmailItinerary = Object.freeze({
