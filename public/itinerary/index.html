@@ -23,7 +23,7 @@
     <div class="itinerary__list" data-itinerary-list></div>
     <div class="itinerary__email-bar">
       <button class="button button--primary itinerary__email-button" type="button" data-email-itinerary>
-        Send to email
+        Send itinerary to email
       </button>
     </div>
     <p class="itinerary__footer">
@@ -594,6 +594,9 @@
       if (emailButton) {
         emailButton.addEventListener('click', () => {
           const items = readItinerary();
+          if (items.length === 0) {
+            return;
+          }
           if (window.EmailItinerary && typeof window.EmailItinerary.send === 'function') {
             window.EmailItinerary.send(items);
           }

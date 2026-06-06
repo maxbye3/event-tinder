@@ -20,6 +20,7 @@ const UNSPLASH_HOSTS = new Set([
 ]);
 
 const ITINERARY_STORAGE_KEY = 'event-tinder-itinerary';
+const SELECTED_DATE_STORAGE_KEY = 'event-tinder-selected-date';
 
 const toOptionalString = (value) => {
   if (typeof value !== 'string') {
@@ -88,7 +89,24 @@ const hasRetrievedImage = (event) => {
   }
 };
 
+const CHILD_AUDIENCE_PATTERN = /\b(children|child|kids|kid|family|families|toddler|toddlers|preschool|youth|teen|teens|storytime|story time|all ages|all-ages)\b/i;
+
+const childAudienceRank = (event) => {
+  const searchableText = [
+    event?.title,
+    event?.type,
+    event?.description,
+    event?.venue,
+    event?.source,
+  ].filter(Boolean).join(' ');
+
+  return CHILD_AUDIENCE_PATTERN.test(searchableText) ? 1 : 0;
+};
+
 const sortEventsForDisplay = (events) => [...events].sort((a, b) => {
+  const audienceRank = childAudienceRank(a) - childAudienceRank(b);
+  if (audienceRank !== 0) return audienceRank;
+
   const imageRank = Number(hasRetrievedImage(b)) - Number(hasRetrievedImage(a));
   if (imageRank !== 0) return imageRank;
 
@@ -115,6 +133,20 @@ const getDcDateValue = () => {
   return `${values.year}-${values.month}-${values.day}`;
 };
 
+const readSelectedDateFromStorage = () => {
+  if (typeof window === 'undefined') {
+    return getDcDateValue();
+  }
+
+  try {
+    const today = getDcDateValue();
+    const storedDate = window.localStorage.getItem(SELECTED_DATE_STORAGE_KEY);
+    return storedDate && storedDate >= today ? storedDate : today;
+  } catch {
+    return getDcDateValue();
+  }
+};
+
 const formatDateChoice = (dateValue) => {
   const [year, month, day] = dateValue.split('-').map(Number);
   const parsed = new Date(Date.UTC(year, month - 1, day, 12));
@@ -130,7 +162,7 @@ const TodayDcPage = () => {
   const [payload, setPayload] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(getDcDateValue);
+  const [selectedDate, setSelectedDate] = useState(readSelectedDateFromStorage);
   const [itinerary, setItinerary] = useState(readItineraryFromStorage);
 
   useEffect(() => {
@@ -163,6 +195,14 @@ const TodayDcPage = () => {
       });
 
     return () => controller.abort();
+  }, [selectedDate]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SELECTED_DATE_STORAGE_KEY, selectedDate);
+    } catch {
+      // Ignore storage failures; the selected date still works for this session.
+    }
   }, [selectedDate]);
 
   const events = useMemo(() => (

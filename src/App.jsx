@@ -21,7 +21,24 @@ const hasRetrievedImage = (event) => {
   }
 };
 
+const CHILD_AUDIENCE_PATTERN = /\b(children|child|kids|kid|family|families|toddler|toddlers|preschool|youth|teen|teens|storytime|story time|all ages|all-ages)\b/i;
+
+const childAudienceRank = (event) => {
+  const searchableText = [
+    event?.title,
+    event?.type,
+    event?.description,
+    event?.venue,
+    event?.source,
+  ].filter(Boolean).join(' ');
+
+  return CHILD_AUDIENCE_PATTERN.test(searchableText) ? 1 : 0;
+};
+
 const sortEventsForDisplay = (events) => [...events].sort((a, b) => {
+  const audienceRank = childAudienceRank(a) - childAudienceRank(b);
+  if (audienceRank !== 0) return audienceRank;
+
   const imageRank = Number(hasRetrievedImage(b)) - Number(hasRetrievedImage(a));
   if (imageRank !== 0) return imageRank;
 
@@ -111,6 +128,7 @@ const formatDateChoice = (dateValue) => {
 const ADD_EVENT_EMAIL = 'botherandherobye@gmail.com';
 const ADD_EVENT_SUBJECT = 'DC Event Tinder: Add Event';
 const ITINERARY_STORAGE_KEY = 'event-tinder-itinerary';
+const SELECTED_DATE_STORAGE_KEY = 'event-tinder-selected-date';
 
 const toOptionalString = (value) => {
   if (typeof value !== 'string') {
@@ -149,6 +167,20 @@ const createCaptcha = () => {
   return { left, right, answer: left + right };
 };
 
+const readSelectedDateFromStorage = () => {
+  if (typeof window === 'undefined') {
+    return getDcDateValue();
+  }
+
+  try {
+    const today = getDcDateValue();
+    const storedDate = window.localStorage.getItem(SELECTED_DATE_STORAGE_KEY);
+    return storedDate && storedDate >= today ? storedDate : today;
+  } catch {
+    return getDcDateValue();
+  }
+};
+
 const hasItineraryItemsInStorage = () => {
   return readItineraryFromStorage().length > 0;
 };
@@ -162,7 +194,7 @@ const App = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [selectedDate, setSelectedDate] = useState(getDcDateValue);
+  const [selectedDate, setSelectedDate] = useState(readSelectedDateFromStorage);
   const [itineraryItems, setItineraryItems] = useState(readItineraryFromStorage);
   const [hasItineraryItems, setHasItineraryItems] = useState(hasItineraryItemsInStorage);
   const [showAddEvent, setShowAddEvent] = useState(false);
@@ -278,6 +310,14 @@ const App = () => {
       fullController.abort();
     };
   }, [refreshKey, selectedDate]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SELECTED_DATE_STORAGE_KEY, selectedDate);
+    } catch {
+      // Ignore storage failures; the selected date still works for this session.
+    }
+  }, [selectedDate]);
 
   useEffect(() => {
     const syncItinerary = () => {
