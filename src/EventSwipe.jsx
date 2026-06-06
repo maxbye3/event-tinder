@@ -190,6 +190,7 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
   const itinerarySyncTimeoutRef = useRef(null);
   const eventVariantMapRef = useRef(new Map());
   const nextVariantIndexRef = useRef(0);
+  const nextToastIdRef = useRef(0);
 
   const items = useMemo(() => {
     if (!Array.isArray(events)) {
@@ -289,7 +290,8 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
     const variantIndex = eventVariantMapRef.current.get(buildEventKey(event)) ?? originalIndex;
 
     const handleSwipe = (direction) => {
-      setLastSwipe({ direction, title });
+      nextToastIdRef.current += 1;
+      setLastSwipe({ id: nextToastIdRef.current, direction, title });
       if (direction === 'right') {
         const itinerary = addEventToItinerary(event, safeImage);
         pendingItineraryRef.current = itinerary;
@@ -368,6 +370,7 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
     <section className="swipe-section">
       {lastSwipe && (
         <p
+          key={lastSwipe.id}
           className={`swipe-section__info swipe-section__info--${lastSwipe.direction}`}
           role="status"
           aria-live="polite"
