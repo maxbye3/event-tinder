@@ -67,6 +67,41 @@
   transform: translateZ(0);
 }
 
+.event-card__image--placeholder {
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.16) 0 25%, transparent 25% 50%, rgba(255, 255, 255, 0.16) 50% 75%, transparent 75%),
+    radial-gradient(circle at 20% 20%, rgba(0, 232, 255, 0.24), transparent 34%),
+    radial-gradient(circle at 82% 70%, rgba(255, 255, 0, 0.2), transparent 30%),
+    rgba(8, 10, 24, 0.28);
+  background-size: 3rem 3rem, auto, auto, auto;
+}
+
+.event-card__placeholder-copy {
+  display: grid;
+  gap: 0.35rem;
+  place-items: center;
+  color: #ffffff;
+  text-align: center;
+  text-shadow: 2px 2px #270695;
+  text-transform: uppercase;
+}
+
+.event-card__placeholder-copy strong {
+  font-family: 'Phosphate Solid', 'Orbitron Extra', sans-serif;
+  font-size: clamp(1.5rem, 8vw, 2.6rem);
+  letter-spacing: 0.04em;
+}
+
+.event-card__placeholder-copy span {
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.75rem;
+}
+
 .event-card--primary .event-card__type {
   background: #d90b5d;
   color: #270695;

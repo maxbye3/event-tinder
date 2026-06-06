@@ -280,6 +280,7 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
     const safeImage = isValidImageUrl(image)
       ? image
       : selectFallbackImage(event);
+    const hasOriginalImage = isValidImageUrl(image);
     const typeLabel = typeof type === 'string' && type.length > 0 ? type : 'event';
 
     const translateX = 0;
@@ -326,11 +327,19 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
         >
           <article className={`event-card ${variantIndex % 2 === 0 ? 'event-card--primary' : 'event-card--secondary'}`}>
             <div
-              className="event-card__image"
+              className={`event-card__image ${hasOriginalImage ? '' : 'event-card__image--placeholder'}`}
               style={{
-                backgroundImage: `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${safeImage})`,
+                backgroundImage: hasOriginalImage
+                  ? `linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.25)), url(${safeImage})`
+                  : undefined,
               }}
             >
+              {!hasOriginalImage ? (
+                <div className="event-card__placeholder-copy">
+                  <strong>DC event</strong>
+                  <span>{typeLabel}</span>
+                </div>
+              ) : null}
               <span className="event-card__type">{typeLabel}</span>
             </div>
             <div className="event-card__body">

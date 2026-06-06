@@ -383,21 +383,18 @@ const App = () => {
 
   const handleRejectEvent = (event) => {
     const key = buildItineraryEventKey(event);
-    setRejectedEventsByDate((currentItemsByDate) => {
-      const existingKeys = Array.isArray(currentItemsByDate[selectedDate])
-        ? currentItemsByDate[selectedDate]
-        : [];
+    const currentItemsByDate = readRejectedEventsFromStorage();
+    const existingKeys = Array.isArray(currentItemsByDate[selectedDate])
+      ? currentItemsByDate[selectedDate]
+      : [];
 
-      if (existingKeys.includes(key)) {
-        return currentItemsByDate;
-      }
+    if (existingKeys.includes(key)) {
+      return;
+    }
 
-      const nextItemsByDate = {
-        ...currentItemsByDate,
-        [selectedDate]: [...existingKeys, key],
-      };
-      writeRejectedEventsToStorage(nextItemsByDate);
-      return nextItemsByDate;
+    writeRejectedEventsToStorage({
+      ...currentItemsByDate,
+      [selectedDate]: [...existingKeys, key],
     });
   };
 
