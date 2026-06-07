@@ -11,6 +11,8 @@ const ADAMS_MORGAN_URL = 'https://adamsmorgan.com/events/calendar';
 const WASHINGTONIAN_EVENTS_ENDPOINT = 'https://portal.cityspark.com/api/events/GetEventsByDay/Washingtonian';
 const LUMA_DC_URL = 'https://luma.com/dc';
 const DOWNTOWN_DC_EVENTS_URL = 'https://www.downtowndc.org/events/';
+const WHARF_DC_EVENTS_URL = 'https://www.wharfdc.com/upcoming-events/';
+const FIFTY_FIRST_WEEKEND_URL = 'https://51st.news/washington-dc-events-things-to-do-weekend-june-4/';
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
 const EVENT_TYPES = [
@@ -165,6 +167,12 @@ const decodeEntities = (value = '') => String(value)
   .replace(/&#x([a-f0-9]+);/gi, (_match, code) => String.fromCharCode(parseInt(code, 16)))
   .replace(/&nbsp;/g, ' ')
   .replace(/&amp;/g, '&')
+  .replace(/&ndash;/g, '-')
+  .replace(/&mdash;/g, '-')
+  .replace(/&rsquo;/g, "'")
+  .replace(/&lsquo;/g, "'")
+  .replace(/&rdquo;/g, '"')
+  .replace(/&ldquo;/g, '"')
   .replace(/&quot;/g, '"')
   .replace(/&#39;/g, "'")
   .replace(/&lt;/g, '<')
@@ -174,8 +182,21 @@ const stripTags = (value = '') => decodeEntities(String(value).replace(/<[^>]+>/
   .replace(/\s+/g, ' ')
   .trim();
 
+const htmlToLines = (value = '') => decodeEntities(String(value)
+  .replace(/<br\s*\/?>/gi, '\n')
+  .replace(/<\/(?:p|div|h[1-6])>/gi, '\n')
+  .replace(/<[^>]+>/g, ' '))
+  .split('\n')
+  .map((line) => line.replace(/\s+/g, ' ').trim())
+  .filter(Boolean);
+
 const cleanEscapedText = (value = '') => stripTags(value)
   .replace(/\\([.!?()[\]{}#+\-=|_])/g, '$1')
+  .replace(/\s+/g, ' ')
+  .trim();
+
+const cleanIconLabelText = (value = '') => text(value)
+  .replace(/^(?:calendar|clock|map marker)\s+icon\s*/i, '')
   .replace(/\s+/g, ' ')
   .trim();
 
@@ -517,6 +538,49 @@ const parseDcLocalDateTime = (dateText, timeText) => {
   if (period === 'pm' && hour < 12) hour += 12;
   if (period === 'am' && hour === 12) hour = 0;
   return zonedTimeToUtc({ year, month, day, hour, minute });
+};
+
+const parseDcLocalIsoDateTime = (value) => {
+  const match = text(value).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?/);
+  if (!match) return null;
+
+  return zonedTimeToUtc({
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+    hour: Number(match[4]),
+    minute: Number(match[5]),
+    second: Number(match[6] ?? 0),
+  });
+};
+
+const formatDateFromLocalIso = (value) => {
+  const match = text(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+  return `${match[1]}-${match[2]}-${match[3]}`;
+};
+
+const dcLocalDateTimeFromLabelAndTime = (dateLabel, timeText) => {
+  const date = parseDateLabel(dateLabel);
+  if (!date) return null;
+
+  const normalized = text(timeText)
+    .toLowerCase()
+    .replace(/\./g, '')
+    .replace(/\s+/g, ' ');
+  const firstTime = normalized.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/);
+  if (!firstTime) return null;
+
+  const laterPeriod = normalized.match(/\b(am|pm)\b/)?.[1] ?? null;
+  const period = firstTime[3] ?? laterPeriod;
+  if (!period) return null;
+
+  let hour = Number(firstTime[1]);
+  const minute = Number(firstTime[2] ?? 0);
+  if (period === 'pm' && hour < 12) hour += 12;
+  if (period === 'am' && hour === 12) hour = 0;
+
+  return zonedTimeToUtc({ ...date, hour, minute });
 };
 
 const formatDcDateText = (dateText) => {
@@ -869,6 +933,137 @@ const parseDowntownDcDetail = async (summary) => {
   };
 };
 
+const parseWharfDcCards = (html) => {
+  const cards = [...html.matchAll(/<article[^>]+typeof=["']Event["'][^>]*>[\s\S]*?<\/article>/gi)];
+  const events = [];
+
+  for (const [cardHtml] of cards) {
+    const title = stripTags(cardHtml.match(/<h3[^>]+property=["']name["'][^>]*>([\s\S]*?)<\/h3>/i)?.[1] ?? '');
+    const start = text(cardHtml.match(/property=["']startDate["'][^>]+content=["']([^"']+)["']/i)?.[1]);
+    const time = cleanIconLabelText(stripTags(cardHtml.match(/<div[^>]+class=["'][^"']*\bEventDetails__time\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? ''));
+    const venue = stripTags(cardHtml.match(/property=["']streetAddress["'][^>]*>([\s\S]*?)<\/span>/i)?.[1] ?? '')
+      || 'The Wharf';
+    const description = stripTags(cardHtml.match(/<div[^>]+class=["'][^"']*\bSummary__description\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? '').slice(0, 240);
+    const image = cardHtml.match(/property=["']image["'][^>]+content=["']([^"']+)["']/i)?.[1]
+      ?? cardHtml.match(/background-image:\s*url\(([^)]+)\)/i)?.[1];
+    const href = cardHtml.match(/<a[^>]+class=["'][^"']*\bLearnMore\b[^"']*["'][^>]+href=["']([^"']+)["']/i)?.[1];
+
+    if (!title || !start) {
+      continue;
+    }
+
+    const parsedStart = parseDcLocalIsoDateTime(start);
+    const startsAt = parsedStart?.toISOString() ?? null;
+    const type = inferType(title, description, venue);
+
+    events.push({
+      title,
+      type,
+      venue,
+      address: 'The Wharf, Washington, DC',
+      date: formatDateFromLocalIso(start) ?? formatDateForEvent(startsAt),
+      time: time || formatTime(startsAt),
+      description,
+      url: absoluteUrl(href, WHARF_DC_EVENTS_URL) ?? WHARF_DC_EVENTS_URL,
+      image: absoluteUrl(image, WHARF_DC_EVENTS_URL) ?? imageForType(type),
+      source: 'The Wharf DC',
+      startsAt,
+    });
+  }
+
+  return events;
+};
+
+const dateFromFiftyFirstHeading = (heading, window) => {
+  const match = text(heading).match(/\b([A-Za-z]{3,9})\s+(\d{1,2})\b/);
+  if (!match) return null;
+
+  const month = MONTHS[match[1].slice(0, 3).toLowerCase()];
+  const day = Number(match[2]);
+  if (!month || !day) return null;
+
+  const year = window.today.year + (month < window.today.month - 6 ? 1 : 0);
+  return formatDate({ year, month, day });
+};
+
+const cleanFiftyFirstDetail = (line, labelPattern) => (
+  text(line).replace(labelPattern, '').replace(/\s+/g, ' ').trim()
+);
+
+const parseFiftyFirstEventParagraph = (paragraphHtml, date, sectionImage) => {
+  const anchor = paragraphHtml.match(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
+  if (!anchor || !date) return null;
+
+  const title = stripTags(anchor[2]);
+  const url = absoluteUrl(anchor[1], FIFTY_FIRST_WEEKEND_URL);
+  const lines = htmlToLines(paragraphHtml);
+  const locationLine = lines.find((line) => /\p{Extended_Pictographic}?\s*(?:Hopkins|Transit|Tudor|All Souls|The Pocket|Five museums|Kogod|People|Art Enables|Martin Luther|The Great Lawn|Peirce|Anacostia|Columbia|[^\n]+\(.*(?:NW|NE|SW|SE|Maryland).*\))/iu.test(line));
+  const timeLine = lines.find((line) => (
+    /(?:\d|sunset|showtimes)/i.test(line)
+    && /(?:\ba\.?m\.?\b|\bp\.?m\.?\b|sunset|showtimes|doors|show)/i.test(line)
+  ));
+  const priceLine = lines.find((line) => /\bfree\b|\$\d/i.test(line));
+  const descriptionStart = Math.max(
+    lines.indexOf(priceLine),
+    lines.indexOf(timeLine),
+    lines.indexOf(locationLine),
+    0,
+  ) + 1;
+  const description = lines.slice(descriptionStart).join(' ').slice(0, 240);
+  const location = cleanFiftyFirstDetail(locationLine ?? '', /^[^\p{L}\p{N}]*/u);
+  const time = cleanFiftyFirstDetail(timeLine ?? '', /^[^\p{L}\p{N}]*/u);
+  const venue = location.replace(/\s*\([^)]*\)\s*$/, '').replace(/;.*$/, '').trim();
+  const startsAt = dcLocalDateTimeFromLabelAndTime(date, time)?.toISOString() ?? null;
+  const type = inferType(title, description, venue);
+
+  if (!title || !url || !time) {
+    return null;
+  }
+
+  return {
+    title,
+    type,
+    venue: venue || 'The 51st pick',
+    address: location,
+    date,
+    time,
+    description: [priceLine ? cleanFiftyFirstDetail(priceLine, /^[^\p{L}\p{N}$]*/u) : '', description].filter(Boolean).join(' · '),
+    url,
+    image: sectionImage ?? imageForType(type),
+    source: 'The 51st',
+    startsAt,
+  };
+};
+
+const parseFiftyFirstWeekendEvents = (html, window) => {
+  const article = html.match(/<article[^>]+class=["'][^"']*\bpost\b[^"']*\bcontent\b[^"']*["'][^>]*>([\s\S]*?)<\/article>/i)?.[1] ?? html;
+  const tokens = [...article.matchAll(/<h2[^>]*>([\s\S]*?)<\/h2>|<figure[\s\S]*?<\/figure>|<p>([\s\S]*?)<\/p>/gi)];
+  const events = [];
+  let currentDate = null;
+  let sectionImage = null;
+
+  for (const token of tokens) {
+    const [raw, headingHtml, paragraphHtml] = token;
+    if (headingHtml) {
+      currentDate = dateFromFiftyFirstHeading(stripTags(headingHtml), window);
+      sectionImage = null;
+      continue;
+    }
+
+    if (/^<figure/i.test(raw)) {
+      sectionImage = absoluteUrl(raw.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1], FIFTY_FIRST_WEEKEND_URL) ?? sectionImage;
+      continue;
+    }
+
+    if (paragraphHtml && currentDate) {
+      const event = parseFiftyFirstEventParagraph(raw, currentDate, sectionImage);
+      if (event) events.push(event);
+    }
+  }
+
+  return events;
+};
+
 const buildNgaIndexedFallbackEvents = (window) => {
   if (window.todayLabel !== '2026-06-02') {
     return [];
@@ -1037,6 +1232,8 @@ const buildEventSources = (window) => [
   { source: 'Washingtonian', fetcher: () => fetchWashingtonianEvents(window), phase: 'fast' },
   { source: 'Luma', fetcher: fetchLumaEvents, phase: 'full' },
   { source: 'DowntownDC', fetcher: () => fetchDowntownDcEvents(window), phase: 'full' },
+  { source: 'The Wharf DC', fetcher: fetchWharfDcEvents, phase: 'fast' },
+  { source: 'The 51st', fetcher: () => fetchFiftyFirstWeekendEvents(window), phase: 'fast' },
   { source: 'NGA Calendar', fetcher: () => fetchNgaEvents(window), phase: 'full' },
   { source: 'Smithsonian', fetcher: fetchSmithsonianEvents, phase: 'full' },
 ];
@@ -1116,6 +1313,14 @@ const fetchDowntownDcEvents = async (window) => {
         : normalizeDowntownDcSummary(summaries[index], window)
     ));
 };
+
+const fetchWharfDcEvents = async () => (
+  parseWharfDcCards(await fetchBrowserText(WHARF_DC_EVENTS_URL, 9000))
+);
+
+const fetchFiftyFirstWeekendEvents = async (window) => (
+  parseFiftyFirstWeekendEvents(await fetchBrowserText(FIFTY_FIRST_WEEKEND_URL, 9000), window)
+);
 
 const fetchWashingtonianEvents = async (window) => {
   const response = await fetch(WASHINGTONIAN_EVENTS_ENDPOINT, {
