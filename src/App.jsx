@@ -130,6 +130,7 @@ const ADD_EVENT_SUBJECT = 'DC Event Tinder: Add Event';
 const ITINERARY_STORAGE_KEY = 'event-tinder-itinerary';
 const REJECTED_EVENTS_STORAGE_KEY = 'event-tinder-rejected-events';
 const SELECTED_DATE_STORAGE_KEY = 'event-tinder-selected-date';
+const WELCOME_MODAL_STORAGE_KEY = 'event-tinder-welcome-seen';
 
 const toOptionalString = (value) => {
   if (typeof value !== 'string') {
@@ -211,6 +212,18 @@ const hasItineraryItemsInStorage = () => {
   return readItineraryFromStorage().length > 0;
 };
 
+const shouldShowWelcomeModal = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  try {
+    return window.localStorage.getItem(WELCOME_MODAL_STORAGE_KEY) !== 'true';
+  } catch {
+    return true;
+  }
+};
+
 const App = () => {
   if (window.location.pathname === '/today-dc') {
     return <TodayDcPage />;
@@ -229,6 +242,16 @@ const App = () => {
   const [captcha, setCaptcha] = useState(createCaptcha);
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [addEventError, setAddEventError] = useState('');
+  const [showWelcome, setShowWelcome] = useState(shouldShowWelcomeModal);
+
+  const closeWelcome = () => {
+    setShowWelcome(false);
+    try {
+      window.localStorage.setItem(WELCOME_MODAL_STORAGE_KEY, 'true');
+    } catch {
+      // Ignore storage failures; the modal will only stay closed for this render.
+    }
+  };
 
   const closeAddEvent = () => {
     setShowAddEvent(false);
@@ -410,6 +433,25 @@ const App = () => {
 
   return (
     <main className="app app--today">
+      {showWelcome ? (
+        <section className="swipe-instructions" aria-label="Welcome to Event Tinder">
+          <div className="swipe-instructions__panel swipe-instructions__panel--welcome">
+            <p className="swipe-instructions__eyebrow">Welcome</p>
+            <h2>Welcome to Event Tinder</h2>
+            <div className="swipe-instructions__copy">
+              <p>Instead of singles in your area, we are showing events.</p>
+              <p>Swipe right if you are interested, left if you are not.</p>
+              <p>Events you are interested in are added to an itinerary, which you can find by scrolling below the cards.</p>
+              <p>You can also change the date and refresh the deck.</p>
+              <p>Please let me know if you go to any of the events!</p>
+            </div>
+            <button type="button" onClick={closeWelcome}>
+              Got it
+            </button>
+          </div>
+        </section>
+      ) : null}
+
       {showAddEvent ? (
         <section className="swipe-instructions" aria-label="Add an event">
           <div className="swipe-instructions__panel">

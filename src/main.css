@@ -318,6 +318,25 @@ body {
   text-transform: uppercase;
 }
 
+.swipe-instructions__panel--welcome {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.swipe-instructions__copy {
+  display: grid;
+  gap: 0.65rem;
+  font-family: 'League Spartan', Arial, sans-serif;
+  font-size: 1.02rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-shadow: none;
+}
+
+.swipe-instructions__copy p {
+  margin: 0;
+}
+
 .swipe-instructions__actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
