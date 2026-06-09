@@ -22,6 +22,23 @@ const UNSPLASH_HOSTS = new Set([
 const ITINERARY_STORAGE_KEY = 'event-tinder-itinerary';
 const SELECTED_DATE_STORAGE_KEY = 'event-tinder-selected-date';
 
+const CITY_CONFIGS = {
+  dc: {
+    key: 'dc',
+    edition: 'DC Edition',
+    apiPath: '/api/today-dc-events',
+    homePath: '/',
+    timeZone: 'America/New_York',
+  },
+  london: {
+    key: 'london',
+    edition: 'London Edition',
+    apiPath: '/api/today-london-events',
+    homePath: '/london',
+    timeZone: 'Europe/London',
+  },
+};
+
 const toOptionalString = (value) => {
   if (typeof value !== 'string') {
     return null;
@@ -115,10 +132,10 @@ const sortEventsForDisplay = (events) => [...events].sort((a, b) => {
   return left - right;
 });
 
-const getDcDateValue = () => {
+const getDateValue = (timeZone = 'America/New_York') => {
   const values = {};
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
+    timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -133,17 +150,18 @@ const getDcDateValue = () => {
   return `${values.year}-${values.month}-${values.day}`;
 };
 
-const readSelectedDateFromStorage = () => {
+const readSelectedDateFromStorage = (timeZone = 'America/New_York', cityKey = 'dc') => {
   if (typeof window === 'undefined') {
-    return getDcDateValue();
+    return getDateValue(timeZone);
   }
 
   try {
-    const today = getDcDateValue();
-    const storedDate = window.localStorage.getItem(SELECTED_DATE_STORAGE_KEY);
+    const today = getDateValue(timeZone);
+    const storedDate = window.localStorage.getItem(`${SELECTED_DATE_STORAGE_KEY}:${cityKey}`)
+      ?? window.localStorage.getItem(SELECTED_DATE_STORAGE_KEY);
     return storedDate && storedDate >= today ? storedDate : today;
   } catch {
-    return getDcDateValue();
+    return getDateValue(timeZone);
   }
 };
 
@@ -158,11 +176,12 @@ const formatDateChoice = (dateValue) => {
   }).format(parsed);
 };
 
-const TodayDcPage = () => {
+const TodayDcPage = ({ city = 'dc' }) => {
+  const cityConfig = CITY_CONFIGS[city] ?? CITY_CONFIGS.dc;
   const [payload, setPayload] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(readSelectedDateFromStorage);
+  const [selectedDate, setSelectedDate] = useState(() => readSelectedDateFromStorage(cityConfig.timeZone, cityConfig.key));
   const [itinerary, setItinerary] = useState(readItineraryFromStorage);
 
   useEffect(() => {
@@ -173,7 +192,7 @@ const TodayDcPage = () => {
 
     const params = new URLSearchParams({ date: selectedDate });
 
-    fetch(`/api/today-dc-events?${params}`, { signal: controller.signal })
+    fetch(`${cityConfig.apiPath}?${params}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) {
           throw new Error(`Request failed with status ${response.status}`);
@@ -195,15 +214,15 @@ const TodayDcPage = () => {
       });
 
     return () => controller.abort();
-  }, [selectedDate]);
+  }, [cityConfig.apiPath, selectedDate]);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(SELECTED_DATE_STORAGE_KEY, selectedDate);
+      window.localStorage.setItem(`${SELECTED_DATE_STORAGE_KEY}:${cityConfig.key}`, selectedDate);
     } catch {
       // Ignore storage failures; the selected date still works for this session.
     }
-  }, [selectedDate]);
+  }, [cityConfig.key, selectedDate]);
 
   const events = useMemo(() => (
     sortEventsForDisplay(Array.isArray(payload?.events) ? payload.events : [])
@@ -237,9 +256,9 @@ const TodayDcPage = () => {
     <main className="today-page">
       <header className="today-page__header">
         <div>
-          <a className="today-page__back" href="/">Back</a>
+          <a className="today-page__back" href={cityConfig.homePath}>Back</a>
           <h1>
-            Event Tinder <span>DC Edition</span>
+            Event Tinder <span>{cityConfig.edition}</span>
           </h1>
           <div className="today-page__controls">
             <label className="today-page__day-picker">

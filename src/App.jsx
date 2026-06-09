@@ -96,10 +96,10 @@ const mergeEvents = (existingEvents, incomingEvents) => {
   return Array.from(merged.values());
 };
 
-const getDcDateValue = () => {
+const getDateValue = (timeZone = 'America/New_York') => {
   const values = {};
   const formatter = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'America/New_York',
+    timeZone,
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -131,6 +131,37 @@ const ITINERARY_STORAGE_KEY = 'event-tinder-itinerary';
 const REJECTED_EVENTS_STORAGE_KEY = 'event-tinder-rejected-events';
 const SELECTED_DATE_STORAGE_KEY = 'event-tinder-selected-date';
 const WELCOME_MODAL_STORAGE_KEY = 'event-tinder-welcome-seen';
+
+const CITY_CONFIGS = {
+  dc: {
+    key: 'dc',
+    edition: 'DC Edition',
+    cityName: 'DC',
+    apiPath: '/api/today-dc-events',
+    homePath: '/',
+    listPath: '/today-dc',
+    timeZone: 'America/New_York',
+    addEventHeading: 'Send us a DC event',
+  },
+  london: {
+    key: 'london',
+    edition: 'London Edition',
+    cityName: 'London',
+    apiPath: '/api/today-london-events',
+    homePath: '/london',
+    listPath: '/today-london',
+    timeZone: 'Europe/London',
+    addEventHeading: 'Send us a London event',
+  },
+};
+
+const browserLooksUkBased = () => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/London';
+  } catch {
+    return false;
+  }
+};
 
 const toOptionalString = (value) => {
   if (typeof value !== 'string') {
@@ -194,17 +225,18 @@ const createCaptcha = () => {
   return { left, right, answer: left + right };
 };
 
-const readSelectedDateFromStorage = () => {
+const readSelectedDateFromStorage = (timeZone = 'America/New_York', cityKey = 'dc') => {
   if (typeof window === 'undefined') {
-    return getDcDateValue();
+    return getDateValue(timeZone);
   }
 
   try {
-    const today = getDcDateValue();
-    const storedDate = window.localStorage.getItem(SELECTED_DATE_STORAGE_KEY);
+    const today = getDateValue(timeZone);
+    const storedDate = window.localStorage.getItem(`${SELECTED_DATE_STORAGE_KEY}:${cityKey}`)
+      ?? window.localStorage.getItem(SELECTED_DATE_STORAGE_KEY);
     return storedDate && storedDate >= today ? storedDate : today;
   } catch {
-    return getDcDateValue();
+    return getDateValue(timeZone);
   }
 };
 
@@ -226,14 +258,25 @@ const shouldShowWelcomeModal = () => {
 
 const App = () => {
   if (window.location.pathname === '/today-dc') {
-    return <TodayDcPage />;
+    return <TodayDcPage city="dc" />;
+  }
+
+  if (window.location.pathname === '/today-london') {
+    return <TodayDcPage city="london" />;
+  }
+
+  const cityKey = window.location.pathname === '/london' || browserLooksUkBased() ? 'london' : 'dc';
+  const cityConfig = CITY_CONFIGS[cityKey];
+
+  if (cityKey === 'london' && window.location.pathname === '/') {
+    window.history.replaceState(null, '', cityConfig.homePath);
   }
 
   const [payload, setPayload] = useState(null);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [selectedDate, setSelectedDate] = useState(readSelectedDateFromStorage);
+  const [selectedDate, setSelectedDate] = useState(() => readSelectedDateFromStorage(cityConfig.timeZone, cityConfig.key));
   const [itineraryItems, setItineraryItems] = useState(readItineraryFromStorage);
   const [rejectedEventsByDate, setRejectedEventsByDate] = useState(readRejectedEventsFromStorage);
   const [hasItineraryItems, setHasItineraryItems] = useState(hasItineraryItemsInStorage);
@@ -298,7 +341,7 @@ const App = () => {
 
     const buildUrl = (phase) => {
       const params = new URLSearchParams({ date: selectedDate, phase });
-      return `/api/today-dc-events?${params}`;
+      return `${cityConfig.apiPath}?${params}`;
     };
 
     const loadPayload = (phase, signal) => fetch(buildUrl(phase), { signal })
@@ -359,15 +402,15 @@ const App = () => {
       fastController.abort();
       fullController.abort();
     };
-  }, [refreshKey, selectedDate]);
+  }, [cityConfig.apiPath, refreshKey, selectedDate]);
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(SELECTED_DATE_STORAGE_KEY, selectedDate);
+      window.localStorage.setItem(`${SELECTED_DATE_STORAGE_KEY}:${cityConfig.key}`, selectedDate);
     } catch {
       // Ignore storage failures; the selected date still works for this session.
     }
-  }, [selectedDate]);
+  }, [cityConfig.key, selectedDate]);
 
   useEffect(() => {
     const syncItinerary = () => {
@@ -456,7 +499,7 @@ const App = () => {
         <section className="swipe-instructions" aria-label="Add an event">
           <div className="swipe-instructions__panel">
             <p className="swipe-instructions__eyebrow">Add event</p>
-            <h2>Send us a DC event</h2>
+            <h2>{cityConfig.addEventHeading}</h2>
             <form className="add-event-form" onSubmit={submitAddEvent}>
               <label>
                 <span>Event details</span>
@@ -504,7 +547,7 @@ const App = () => {
       <header className="app__home-header">
         <div>
           <h1 className="app__title">
-            Event Tinder <span>DC Edition</span>
+            Event Tinder <span>{cityConfig.edition}</span>
           </h1>
           {hasItineraryItems ? (
             <>
@@ -528,7 +571,7 @@ const App = () => {
               aria-label="Choose event date"
             />
           </label>
-          <a className="app__mode-link" href="/today-dc">
+          <a className="app__mode-link" href={cityConfig.listPath}>
             List mode
           </a>
           <button
