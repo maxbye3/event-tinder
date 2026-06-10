@@ -56,6 +56,22 @@ const buildEventKey = (event) => [
   .map((part) => part.toLowerCase())
   .join('::');
 
+const mergeEvents = (existingEvents, incomingEvents) => {
+  const merged = [];
+  const seen = new Set();
+
+  [...existingEvents, ...incomingEvents].forEach((event) => {
+    const key = buildEventKey(event);
+    if (seen.has(key)) {
+      return;
+    }
+    seen.add(key);
+    merged.push(event);
+  });
+
+  return merged;
+};
+
 const readItineraryFromStorage = () => {
   if (typeof window === 'undefined') {
     return [];
@@ -106,7 +122,28 @@ const hasRetrievedImage = (event) => {
   }
 };
 
-const CHILD_AUDIENCE_PATTERN = /\b(children|child|kids|kid|family|families|toddler|toddlers|preschool|youth|teen|teens|storytime|story time|all ages|all-ages)\b/i;
+const CHILD_AUDIENCE_PATTERN = /\b(children|child|kids|kid|family|families|toddler|toddlers|preschool|youth|teen|teens|storytime|story time|all ages|all-ages|babies|baby)\b/i;
+const SOURCE_PRIORITY = [
+  'IanVisits',
+  'Londonist',
+  'London The Inside',
+  'Songkick',
+  'Resident Advisor',
+  'Secret London',
+  'Barbican',
+  'BFI',
+  'City of London',
+  'Time Out London',
+  'The Nudge',
+  'Somerset House',
+  'Atlas Obscura',
+  'Fever',
+  'Ents24',
+  'Intelligence Squared',
+  'Meetup London',
+  'Eventbrite Free London',
+];
+const SOURCE_PRIORITY_MAP = new Map(SOURCE_PRIORITY.map((source, index) => [source, index]));
 
 const childAudienceRank = (event) => {
   const searchableText = [
@@ -120,17 +157,118 @@ const childAudienceRank = (event) => {
   return CHILD_AUDIENCE_PATTERN.test(searchableText) ? 1 : 0;
 };
 
-const sortEventsForDisplay = (events) => [...events].sort((a, b) => {
+const priceRank = (event) => /\bfree\b/i.test([event?.time, event?.description].filter(Boolean).join(' ')) ? 0 : 1;
+const recurringRank = (event) => /\b(various dates|ongoing|regular|daily|weekly|permanent)\b/i
+  .test([event?.time, event?.description].filter(Boolean).join(' ')) ? 1 : 0;
+const evergreenGuideRank = (event) => {
+  const haystack = [event?.title, event?.time, event?.description, event?.venue, event?.source].filter(Boolean).join(' ');
+  if (!/\b(Time Out London|Fever|Secret London|The Nudge|Atlas Obscura)\b/i.test(event?.source ?? '')) return 0;
+  return /\b(bucket list|best things to do|things to do in \w+|best of|best \w+|where to watch|on a budget|bike rides|free museums|guide|guides|events in \w+|what'?s on this \w+|attractions|ideas)\b/i.test(haystack)
+    ? 1
+    : 0;
+};
+const sourceRank = (event) => {
+  const sources = String(event?.source ?? '').split(/\s+\+\s+/).filter(Boolean);
+  const ranks = sources.map((source) => SOURCE_PRIORITY_MAP.get(source) ?? SOURCE_PRIORITY.length);
+  return ranks.length ? Math.min(...ranks) : SOURCE_PRIORITY.length;
+};
+const sourceKey = (event) => String(event?.source ?? '').split(/\s+\+\s+/).filter(Boolean)[0] || 'Other';
+
+const sortEventsBase = (events) => [...events].sort((a, b) => {
   const audienceRank = childAudienceRank(a) - childAudienceRank(b);
   if (audienceRank !== 0) return audienceRank;
 
+  const evergreenRank = evergreenGuideRank(a) - evergreenGuideRank(b);
+  if (evergreenRank !== 0) return evergreenRank;
+
+  const freeRank = priceRank(a) - priceRank(b);
+  if (freeRank !== 0) return freeRank;
+
+  const oneOffRank = recurringRank(a) - recurringRank(b);
+  if (oneOffRank !== 0) return oneOffRank;
+
   const imageRank = Number(hasRetrievedImage(b)) - Number(hasRetrievedImage(a));
   if (imageRank !== 0) return imageRank;
+
+  const sourcePriorityRank = sourceRank(a) - sourceRank(b);
+  if (sourcePriorityRank !== 0) return sourcePriorityRank;
 
   const left = a?.startsAt ? new Date(a.startsAt).getTime() : Number.MAX_SAFE_INTEGER;
   const right = b?.startsAt ? new Date(b.startsAt).getTime() : Number.MAX_SAFE_INTEGER;
   return left - right;
 });
+
+const interleaveSources = (events) => {
+  const buckets = new Map();
+  for (const event of events) {
+    const key = sourceKey(event);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(event);
+  }
+
+  const orderedKeys = [...buckets.keys()].sort((left, right) => (
+    sourceRank(buckets.get(left)[0]) - sourceRank(buckets.get(right)[0])
+  ));
+  const output = [];
+  let previousKey = null;
+
+  while (output.length < events.length) {
+    const availableKeys = orderedKeys.filter((key) => buckets.get(key)?.length);
+    if (!availableKeys.length) break;
+    const nextKey = availableKeys.find((key) => key !== previousKey) ?? availableKeys[0];
+    output.push(buckets.get(nextKey).shift());
+    previousKey = nextKey;
+  }
+
+  return output;
+};
+
+const qualityGroupKey = (event) => [
+  childAudienceRank(event),
+  priceRank(event),
+  recurringRank(event),
+  Number(!hasRetrievedImage(event)),
+  evergreenGuideRank(event),
+].join(':');
+
+const softenSourceRuns = (events, maxRun = 3) => {
+  const mixed = [...events];
+  for (let index = maxRun; index < mixed.length; index += 1) {
+    const currentSource = sourceKey(mixed[index]);
+    const isRun = mixed
+      .slice(index - maxRun, index)
+      .every((event) => sourceKey(event) === currentSource);
+
+    if (!isRun) continue;
+
+    const replacementIndex = mixed.findIndex((event, candidateIndex) => (
+      candidateIndex > index
+      && sourceKey(event) !== currentSource
+      && childAudienceRank(event) === childAudienceRank(mixed[index])
+      && evergreenGuideRank(event) === evergreenGuideRank(mixed[index])
+    ));
+
+    if (replacementIndex > index) {
+      const [replacement] = mixed.splice(replacementIndex, 1);
+      mixed.splice(index, 0, replacement);
+    }
+  }
+
+  return mixed;
+};
+
+const sortEventsForDisplay = (events) => {
+  const sorted = sortEventsBase(events);
+  const groups = new Map();
+
+  for (const event of sorted) {
+    const key = qualityGroupKey(event);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(event);
+  }
+
+  return softenSourceRuns([...groups.values()].flatMap(interleaveSources));
+};
 
 const getDateValue = (timeZone = 'America/New_York') => {
   const values = {};
@@ -185,35 +323,76 @@ const TodayDcPage = ({ city = 'dc' }) => {
   const [itinerary, setItinerary] = useState(readItineraryFromStorage);
 
   useEffect(() => {
-    const controller = new AbortController();
+    const fastController = new AbortController();
+    const fullController = new AbortController();
 
     setLoading(true);
     setError(null);
+    setPayload(null);
 
-    const params = new URLSearchParams({ date: selectedDate });
+    const buildUrl = (phase) => {
+      const params = new URLSearchParams({ date: selectedDate, phase });
+      return `${cityConfig.apiPath}?${params}`;
+    };
 
-    fetch(`${cityConfig.apiPath}?${params}`, { signal: controller.signal })
+    const loadPayload = (phase, signal) => fetch(buildUrl(phase), { signal })
       .then((response) => {
         if (!response.ok) {
           throw new Error(`Request failed with status ${response.status}`);
         }
         return response.json();
-      })
+      });
+
+    loadPayload('fast', fastController.signal)
       .then((json) => {
-        setPayload(json);
+        setPayload((currentPayload) => (
+          currentPayload?.meta?.phase === 'full' ? currentPayload : json
+        ));
+        if (Array.isArray(json.events) && json.events.length > 0) {
+          setLoading(false);
+        }
       })
       .catch((requestError) => {
         if (requestError.name !== 'AbortError') {
           setError(requestError.message);
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) {
           setLoading(false);
         }
       });
 
-    return () => controller.abort();
+    loadPayload('full', fullController.signal)
+      .then((json) => {
+        setPayload((currentPayload) => {
+          if (!currentPayload) {
+            return json;
+          }
+
+          const events = mergeEvents(
+            Array.isArray(currentPayload.events) ? currentPayload.events : [],
+            Array.isArray(json.events) ? json.events : [],
+          );
+
+          return {
+            ...json,
+            events,
+            meta: {
+              ...json.meta,
+              count: events.length,
+            },
+          };
+        });
+        setLoading(false);
+      })
+      .catch((requestError) => {
+        if (requestError.name !== 'AbortError') {
+          setError((currentError) => currentError ?? requestError.message);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      fastController.abort();
+      fullController.abort();
+    };
   }, [cityConfig.apiPath, selectedDate]);
 
   useEffect(() => {
@@ -344,6 +523,17 @@ const TodayDcPage = ({ city = 'dc' }) => {
           </article>
         ))}
       </section>
+
+      {cityConfig.key === 'london' ? (
+        <section className="today-page__source-priority" aria-label="London source priority">
+          <h2>Source priority</h2>
+          <ol>
+            {SOURCE_PRIORITY.map((source) => (
+              <li key={source}>{source}</li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
     </main>
   );
 };

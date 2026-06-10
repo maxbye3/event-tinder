@@ -188,7 +188,11 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
   const pendingItineraryRef = useRef(null);
   const previousItemKeysRef = useRef([]);
   const itinerarySyncTimeoutRef = useRef(null);
+  const swipeLockTimeoutRef = useRef(null);
+  const swipeLockRef = useRef(false);
+  const swipeHintsRef = useRef(null);
   const eventVariantMapRef = useRef(new Map());
+  const cardRefsRef = useRef(new Map());
   const nextVariantIndexRef = useRef(0);
   const nextToastIdRef = useRef(0);
 
@@ -243,7 +247,9 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
   useEffect(() => {
     setLastSwipe(null);
     setActiveIndex(0);
+    setSwipeLock(false);
     eventVariantMapRef.current = new Map();
+    cardRefsRef.current = new Map();
     nextVariantIndexRef.current = 0;
   }, [feedKey]);
 
@@ -263,7 +269,41 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
     if (itinerarySyncTimeoutRef.current) {
       window.clearTimeout(itinerarySyncTimeoutRef.current);
     }
+    if (swipeLockTimeoutRef.current) {
+      window.clearTimeout(swipeLockTimeoutRef.current);
+    }
   }, []);
+
+  const setSwipeLock = (locked) => {
+    swipeLockRef.current = locked;
+    swipeHintsRef.current?.classList.toggle('swipe-hints--locked', locked);
+    swipeHintsRef.current?.querySelectorAll('button').forEach((button) => {
+      button.setAttribute('aria-disabled', locked ? 'true' : 'false');
+    });
+  };
+
+  const swipeActiveCard = async (direction) => {
+    if (!activeEvent || swipeLockRef.current) {
+      return;
+    }
+
+    const card = cardRefsRef.current.get(buildEventKey(activeEvent));
+    if (card && typeof card.swipe === 'function') {
+      setSwipeLock(true);
+      if (swipeLockTimeoutRef.current) {
+        window.clearTimeout(swipeLockTimeoutRef.current);
+      }
+      swipeLockTimeoutRef.current = window.setTimeout(() => {
+        setSwipeLock(false);
+        swipeLockTimeoutRef.current = null;
+      }, 900);
+      try {
+        await card.swipe(direction);
+      } catch {
+        setSwipeLock(false);
+      }
+    }
+  };
 
   const renderCard = ({ event, originalIndex, visibleIndex }) => {
     const {
@@ -288,6 +328,7 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
     const translateY = visibleIndex * 8;
     const scale = 1 - visibleIndex * 0.035;
     const variantIndex = eventVariantMapRef.current.get(buildEventKey(event)) ?? originalIndex;
+    const eventKey = buildEventKey(event);
 
     const handleSwipe = (direction) => {
       nextToastIdRef.current += 1;
@@ -302,11 +343,16 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
 
     const handleCardLeftScreen = () => {
       setActiveIndex((currentIndex) => Math.max(currentIndex, originalIndex + 1));
+      setSwipeLock(false);
+      if (swipeLockTimeoutRef.current) {
+        window.clearTimeout(swipeLockTimeoutRef.current);
+        swipeLockTimeoutRef.current = null;
+      }
       if (pendingItineraryRef.current) {
         const itinerary = pendingItineraryRef.current;
         pendingItineraryRef.current = null;
         itinerarySyncTimeoutRef.current = window.setTimeout(() => {
-          onItineraryChange?.(itinerary);
+          onItineraryChange?.(itinerary, { syncFilter: false });
           itinerarySyncTimeoutRef.current = null;
         }, 220);
       }
@@ -316,6 +362,13 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
       <TinderCard
         className="swipe"
         key={`${title}-${date}-${originalIndex}`}
+        ref={(card) => {
+          if (card) {
+            cardRefsRef.current.set(eventKey, card);
+          } else {
+            cardRefsRef.current.delete(eventKey);
+          }
+        }}
         onSwipe={handleSwipe}
         onCardLeftScreen={handleCardLeftScreen}
         preventSwipe={['up', 'down']}
@@ -395,21 +448,33 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
       )}
       <div className="swipe-container">
         {hasEvents && activeIndex < items.length ? (
-          <div className="swipe-hints" aria-hidden="true">
-            <div className="swipe-hints__item swipe-hints__item--left">
+          <div className="swipe-hints" ref={swipeHintsRef}>
+            <button
+              className="swipe-hints__item swipe-hints__item--left"
+              type="button"
+              onClick={() => swipeActiveCard('left')}
+              aria-disabled="false"
+              aria-label="Nope, skip this event"
+            >
               <svg viewBox="0 0 120 92">
                 <path d="M28 14c34 2 62 20 70 45 4 13-2 24-16 25-24 2-49-11-65-29" />
                 <path d="M43 36L15 54l22 27" />
               </svg>
               <span>Nope</span>
-            </div>
-            <div className="swipe-hints__item swipe-hints__item--right">
+            </button>
+            <button
+              className="swipe-hints__item swipe-hints__item--right"
+              type="button"
+              onClick={() => swipeActiveCard('right')}
+              aria-disabled="false"
+              aria-label="Interested, add this event to itinerary"
+            >
               <svg viewBox="0 0 120 92">
                 <path d="M92 14C58 16 30 34 22 59c-4 13 2 24 16 25 24 2 49-11 65-29" />
                 <path d="M77 36l28 18-22 27" />
               </svg>
               <span>Interested</span>
-            </div>
+            </button>
           </div>
         ) : null}
         {hasEvents && activeIndex < items.length ? [...visibleItems].reverse().map(renderCard) : (

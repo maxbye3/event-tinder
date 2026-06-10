@@ -326,10 +326,11 @@ body {
 .swipe-instructions__copy {
   display: grid;
   gap: 0.65rem;
+  color: #07111f;
   font-family: 'League Spartan', Arial, sans-serif;
   font-size: 1.02rem;
-  font-weight: 900;
-  line-height: 1.2;
+  font-weight: 800;
+  line-height: 1.32;
   text-shadow: none;
 }
 
@@ -480,6 +481,82 @@ body {
   isolation: isolate;
 }
 
+@media (min-width: 680px) {
+  #root {
+    align-items: flex-start;
+    padding: clamp(1.5rem, 3vw, 3rem);
+  }
+
+  .app--today {
+    display: grid;
+    grid-template-columns: minmax(190px, 300px) minmax(400px, 620px);
+    gap: clamp(1.25rem, 3vw, 3rem);
+    width: min(100%, 980px);
+    align-items: start;
+  }
+
+  .app--today .swipe-section {
+    grid-column: 2;
+    grid-row: 1 / span 3;
+    width: min(100%, 560px);
+    margin: 0;
+  }
+
+  .app--today .swipe-container {
+    height: clamp(560px, calc(100vh - 4.5rem), 720px);
+  }
+
+  .app--today .app__home-header {
+    grid-column: 1;
+    grid-row: 1;
+    position: sticky;
+    top: 1.5rem;
+    display: grid;
+    gap: 1.25rem;
+    align-self: start;
+    margin: 1.25rem 0 0;
+    padding: 1rem 0;
+  }
+
+  .app--today .app__title {
+    max-width: 7ch;
+    font-size: clamp(2.45rem, 5.4vw, 4.5rem);
+    line-height: 0.98;
+  }
+
+  .app--today .app__home-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    align-items: stretch;
+  }
+
+  .app--today .app__day-picker,
+  .app--today .app__instructions-button,
+  .app--today .app__itinerary-link,
+  .app--today .app__itinerary-divider {
+    grid-column: 1 / -1;
+  }
+
+  .app--today .app__day-picker {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .app--today .app__mode-link,
+  .app--today .app__refresh,
+  .app--today .app__instructions-button,
+  .app--today .app__itinerary-link {
+    min-height: 3.25rem;
+    padding: 0.8rem 1rem;
+  }
+
+  .app--today .app__error {
+    grid-column: 1;
+  }
+}
+
 .swipe-hints {
   position: absolute;
   inset: 0;
@@ -491,14 +568,35 @@ body {
 }
 
 .swipe-hints__item {
+  border: 0;
+  background: transparent;
   display: grid;
   gap: 0.15rem;
   place-items: center;
+  padding: 0;
   font-family: 'Orbitron Extra', sans-serif;
   font-size: 0.64rem;
+  line-height: 1;
   text-shadow: 1px 1px #270695;
   transform: translateY(-100px);
   text-transform: uppercase;
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 1;
+  touch-action: manipulation;
+  transition: opacity 0.15s ease, filter 0.15s ease;
+}
+
+.swipe-hints__item:focus-visible {
+  outline: 3px solid #ffff00;
+  outline-offset: 0.35rem;
+}
+
+.swipe-hints--locked .swipe-hints__item,
+.swipe-hints__item[aria-disabled="true"] {
+  cursor: wait;
+  filter: saturate(0.85);
+  opacity: 0.42;
 }
 
 .swipe-hints__item svg {
@@ -673,6 +771,35 @@ body {
   display: grid;
   gap: 0.75rem;
   padding-bottom: 2rem;
+}
+
+.today-page__source-priority {
+  border: 1px solid rgba(17, 24, 39, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #111827;
+  margin: 0 0 2rem;
+  padding: 1rem;
+}
+
+.today-page__source-priority h2 {
+  margin: 0 0 0.75rem;
+  font-family: 'Orbitron Extra', sans-serif;
+  font-size: 1rem;
+  text-transform: uppercase;
+}
+
+.today-page__source-priority ol {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding-left: 1.35rem;
+}
+
+.today-page__source-priority li {
+  color: #374151;
+  font-size: 0.95rem;
+  font-weight: 800;
 }
 
 .today-event {

@@ -4,6 +4,23 @@ const CITY_OF_LONDON_URL = 'https://www.thecityofldn.com/things-to-see-and-do/wh
 const TIMEOUT_LONDON_URL = 'https://www.timeout.com/london/things-to-do';
 const ATLAS_OBSCURA_LONDON_URL = 'https://www.atlasobscura.com/things-to-do/london-england';
 const FEVER_LONDON_URL = 'https://feverup.com/en/london';
+const LONDONIST_FEED_URL = 'https://londonist.com/feed';
+const LONDON_THE_INSIDE_URL = 'https://londontheinside.com/whatson/';
+const BARBICAN_URL = 'https://www.barbican.org.uk/whats-on';
+const SONGKICK_LONDON_URL = 'https://www.songkick.com/metro-areas/24426-uk-london';
+const SECRET_LDN_URL = 'https://secretldn.com/things-to-do/';
+const SOMERSET_HOUSE_URL = 'https://www.somersethouse.org.uk/whats-on';
+const BFI_URL = 'https://whatson.bfi.org.uk/Online/default.asp';
+const EVENTBRITE_FREE_LONDON_URL = 'https://www.eventbrite.co.uk/d/united-kingdom--london/free--events/';
+const ENTS24_LONDON_URL = 'https://www.ents24.com/whatson/london';
+const INTELLIGENCE_SQUARED_URL = 'https://www.intelligencesquared.com/attend/';
+const MEETUP_LONDON_URL = 'https://www.meetup.com/find/?location=gb--17--London&source=EVENTS';
+const THE_NUDGE_URL = 'https://thenudge.com/london-things-to-do/';
+const ROYAL_INSTITUTION_URL = 'https://www.rigb.org/whats-on';
+const LONDON_MUSEUM_URL = 'https://www.londonmuseum.org.uk/whats-on/?date_preference=custom&from_date=&tag=&person=&organisation=';
+const GRESHAM_URL = 'https://www.gresham.ac.uk/whats-on?see-all';
+const RA_GRAPHQL_URL = 'https://ra.co/graphql';
+const RA_LONDON_AREA_ID = 13;
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
 const cache = new Map();
@@ -21,6 +38,16 @@ const MONTHS = {
   oct: 10,
   nov: 11,
   dec: 12,
+};
+
+const WEEKDAYS = {
+  sunday: 0,
+  monday: 1,
+  tuesday: 2,
+  wednesday: 3,
+  thursday: 4,
+  friday: 5,
+  saturday: 6,
 };
 
 const EVENT_TYPES = [
@@ -64,7 +91,11 @@ const decodeEntities = (value = '') => String(value)
   .replace(/&lt;/g, '<')
   .replace(/&gt;/g, '>');
 
-const stripTags = (value = '') => decodeEntities(String(value).replace(/<[^>]+>/g, ' '))
+const stripTags = (value = '') => decodeEntities(String(value)
+  .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+  .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+  .replace(/<noscript\b[\s\S]*?<\/noscript>/gi, ' ')
+  .replace(/<[^>]+>/g, ' '))
   .replace(/\s+/g, ' ')
   .trim();
 
@@ -86,6 +117,59 @@ const absoluteUrl = (value, baseUrl) => {
   } catch {
     return null;
   }
+};
+
+const srcsetWidth = (descriptor = '') => {
+  const width = descriptor.match(/(\d+)w\b/i)?.[1];
+  if (width) return Number(width);
+  const density = descriptor.match(/([\d.]+)x\b/i)?.[1];
+  return density ? Number(density) * 1000 : 0;
+};
+
+const bestImageFromSrcset = (value, baseUrl) => {
+  const raw = decodeEntities(value ?? '').trim();
+  if (!raw) return null;
+  const candidates = raw
+    .split(',')
+    .map((candidate) => {
+      const [url, descriptor = ''] = candidate.trim().split(/\s+/, 2);
+      return {
+        url: absoluteUrl(url, baseUrl),
+        width: srcsetWidth(descriptor),
+      };
+    })
+    .filter((candidate) => isHttpUrl(candidate.url));
+
+  return candidates.sort((a, b) => b.width - a.width)[0]?.url ?? null;
+};
+
+const useOriginalWordpressImage = (value) => {
+  if (!isHttpUrl(value)) return value;
+  return value.replace(/-\d+x\d+(\.(?:jpe?g|png|webp|gif))(?:\?.*)?$/i, '$1');
+};
+
+const bestImageFromHtml = (html, baseUrl) => {
+  const imageTag = html.match(/<img\b[^>]*>/i)?.[0] ?? '';
+  if (!imageTag) return null;
+
+  const image = bestImageFromSrcset(
+    imageTag.match(/\bdata-lazy-srcset=["']([^"']+)["']/i)?.[1]
+      ?? imageTag.match(/\bdata-srcset=["']([^"']+)["']/i)?.[1]
+      ?? imageTag.match(/\bsrcset=["']([^"']+)["']/i)?.[1],
+    baseUrl,
+  ) ?? absoluteUrl(
+    imageTag.match(/\bdata-lazy-src=["']([^"']+)["']/i)?.[1]
+      ?? imageTag.match(/\bdata-src=["']([^"']+)["']/i)?.[1]
+      ?? imageTag.match(/\bsrc=["']([^"']+)["']/i)?.[1],
+    baseUrl,
+  );
+
+  return useOriginalWordpressImage(image);
+};
+
+const bestFeaturedImageFromHtml = (html, baseUrl) => {
+  const imageTag = html.match(/<img\b(?=[^>]*\b(?:wp-post-image|attachment-post-thumbnail)\b)[^>]*>/i)?.[0] ?? '';
+  return imageTag ? bestImageFromHtml(imageTag, baseUrl) : null;
 };
 
 const inferType = (...values) => {
@@ -194,13 +278,14 @@ const extractMetaContent = (html, key) => {
   return decodeEntities(tag?.match(/content=["']([^"']+)["']/i)?.[1] ?? '');
 };
 
-const fetchOpenGraphImage = async (url) => {
+const fetchOpenGraphImage = async (url, timeout = 4500) => {
   if (!isHttpUrl(url)) return null;
   try {
-    const html = await fetchText(url, 4500);
+    const html = await fetchText(url, timeout);
     const rawImage = extractMetaContent(html.slice(0, 160_000), 'og:image')
       || extractMetaContent(html.slice(0, 160_000), 'twitter:image');
-    return absoluteUrl(rawImage, url);
+    return useOriginalWordpressImage(absoluteUrl(rawImage, url))
+      || bestFeaturedImageFromHtml(html.slice(0, 260_000), url);
   } catch {
     return null;
   }
@@ -220,6 +305,17 @@ const parseLondonTime = (dateLabel, value) => {
   return zonedTimeToUtc({ ...date, hour, minute }).toISOString();
 };
 
+const weekdayName = ({ year, month, day }) => new Intl.DateTimeFormat('en-GB', {
+  timeZone: LONDON_TIME_ZONE,
+  weekday: 'long',
+}).format(zonedTimeToUtc({ year, month, day, hour: 12 })).toLowerCase();
+
+const dateFromDayMonth = (day, monthName, fallbackYear) => {
+  const month = MONTHS[String(monthName || '').slice(0, 3).toLowerCase()];
+  if (!month || !day) return null;
+  return formatDate({ year: fallbackYear, month, day: Number(day) });
+};
+
 const parseLondonIsoDateTime = (value) => {
   const raw = text(value);
   if (!raw) return null;
@@ -230,6 +326,42 @@ const parseLondonIsoDateTime = (value) => {
 
 const priceRank = (event) => /\bfree\b/i.test([event.time, event.description].join(' ')) ? 0 : 1;
 const recurringRank = (event) => /\b(various dates|ongoing|regular|daily|weekly|permanent)\b/i.test([event.time, event.description].join(' ')) ? 1 : 0;
+const childAudienceRank = (event) => /\b(children|child|kids|kid|family|families|toddler|toddlers|preschool|youth|teen|teens|storytime|story time|all ages|all-ages|babies|baby)\b/i
+  .test([event.title, event.type, event.description, event.venue, event.source].join(' ')) ? 1 : 0;
+const evergreenGuideRank = (event) => {
+  const haystack = [event.title, event.time, event.description, event.venue, event.source].join(' ');
+  if (!/\b(Time Out London|Fever|Secret London|The Nudge|Atlas Obscura)\b/i.test(event.source)) return 0;
+  return /\b(bucket list|best things to do|things to do in \w+|best of|best \w+|where to watch|on a budget|bike rides|free museums|guide|guides|events in \w+|what'?s on this \w+|attractions|ideas)\b/i.test(haystack)
+    ? 1
+    : 0;
+};
+const SOURCE_PRIORITY = [
+  'IanVisits',
+  'Londonist',
+  'London The Inside',
+  'Songkick',
+  'Resident Advisor',
+  'Secret London',
+  'Barbican',
+  'BFI',
+  'City of London',
+  'Time Out London',
+  'The Nudge',
+  'Somerset House',
+  'Atlas Obscura',
+  'Fever',
+  'Ents24',
+  'Intelligence Squared',
+  'Meetup London',
+  'Eventbrite Free London',
+];
+const SOURCE_PRIORITY_MAP = new Map(SOURCE_PRIORITY.map((source, index) => [source, index]));
+const sourceRank = (event) => {
+  const sources = text(event.source).split(/\s+\+\s+/).filter(Boolean);
+  const ranks = sources.map((source) => SOURCE_PRIORITY_MAP.get(source) ?? SOURCE_PRIORITY.length);
+  return ranks.length ? Math.min(...ranks) : SOURCE_PRIORITY.length;
+};
+const sourceKey = (event) => text(event.source).split(/\s+\+\s+/).filter(Boolean)[0] || 'Other';
 
 const normalizeEvent = (event) => ({
   title: text(event.title) || 'Untitled event',
@@ -255,11 +387,7 @@ const parseIanVisitsEvents = (html, window) => {
 
     const url = absoluteUrl(titleAnchor[1], IAN_VISITS_URL);
     const title = stripTags(titleAnchor[2]);
-    const image = absoluteUrl(
-      block.match(/<img[^>]+data-lazy-src=["']([^"']+)["']/i)?.[1]
-        ?? block.match(/<img[^>]+(?:src|data-src)=["']([^"']+)["']/i)?.[1],
-      IAN_VISITS_URL,
-    );
+    const image = bestImageFromHtml(block, IAN_VISITS_URL);
     const time = stripTags(block.match(/<div[^>]+class=["'][^"']*\bevent_time\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? '')
       || 'See details';
     const price = stripTags(block.match(/<div[^>]+class=["'][^"']*\bevent_price\b[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1] ?? '');
@@ -284,6 +412,198 @@ const parseIanVisitsEvents = (html, window) => {
   }
 
   return events;
+};
+
+const enrichIanVisitsImages = async (events, { limit = 12, timeout = 2800 } = {}) => {
+  const missingImageEvents = events
+    .filter((event) => event.source === 'IanVisits' && !hasScrapedImage(event) && isHttpUrl(event.url))
+    .slice(0, limit);
+
+  if (!missingImageEvents.length) return events;
+
+  const imageByUrl = new Map(await Promise.all(missingImageEvents.map(async (event) => ([
+    event.url,
+    await fetchOpenGraphImage(event.url, timeout),
+  ]))));
+
+  return events.map((event) => {
+    const image = imageByUrl.get(event.url);
+    return image ? { ...event, image } : event;
+  });
+};
+
+const fetchRaLondonEvents = async (window) => {
+  const query = 'query GET_EVENTS($filters: FilterInputDtoInput, $pageSize: Int) { eventListings(filters: $filters, pageSize: $pageSize, page: 1, sort: { attending: { priority: 1, order: DESCENDING } }) { data { id listingDate event { id title attending date contentUrl flyerFront images { id filename alt type crop } venue { id name contentUrl live } } } } }';
+  const variables = {
+    filters: {
+      areas: { eq: RA_LONDON_AREA_ID },
+      listingDate: { gte: window.todayLabel, lte: window.tomorrowLabel },
+      listingPosition: { eq: 1 },
+    },
+    pageSize: 18,
+  };
+
+  const response = await fetch(RA_GRAPHQL_URL, {
+    method: 'POST',
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'Accept-Language': 'en-GB,en;q=0.9',
+    },
+    body: JSON.stringify({ query, variables }),
+    signal: AbortSignal.timeout(6500),
+  });
+
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const payload = await response.json();
+  const listings = payload?.data?.eventListings?.data;
+  if (!Array.isArray(listings)) return [];
+
+  return listings.map((listing) => {
+    const event = listing?.event ?? {};
+    const image = Array.isArray(event.images)
+      ? event.images.find((candidate) => candidate?.type === 'FLYERFRONT' && isHttpUrl(candidate.filename))?.filename
+        ?? event.images.find((candidate) => isHttpUrl(candidate?.filename))?.filename
+      : null;
+    const dateLabel = formatDate(getZonedParts(new Date(listing.listingDate ?? event.date)));
+    const venue = text(event.venue?.name) || 'London nightlife';
+    const attending = Number(event.attending);
+
+    return normalizeEvent({
+      title: event.title,
+      type: 'music',
+      venue,
+      address: venue,
+      date: dateLabel,
+      time: 'Tonight',
+      description: [
+        venue,
+        Number.isFinite(attending) && attending > 0 ? `${attending} interested on RA` : '',
+      ].filter(Boolean).join(' · '),
+      url: absoluteUrl(event.contentUrl, 'https://ra.co') ?? absoluteUrl(`/events/${event.id}`, 'https://ra.co'),
+      image,
+      source: 'Resident Advisor',
+      startsAt: null,
+    });
+  }).filter((event) => event.date === window.todayLabel);
+};
+
+const parseRssItems = (xml) => [...xml.matchAll(/<item>([\s\S]*?)<\/item>/gi)].map(([, item]) => ({
+  title: stripTags(item.match(/<title>([\s\S]*?)<\/title>/i)?.[1] ?? ''),
+  link: stripTags(item.match(/<link>([\s\S]*?)<\/link>/i)?.[1] ?? ''),
+  content: decodeEntities(item.match(/<content:encoded><!\[CDATA\[([\s\S]*?)\]\]><\/content:encoded>/i)?.[1] ?? ''),
+  image: absoluteUrl(item.match(/<media:content[^>]+url=["']([^"']+)["']/i)?.[1], LONDONIST_FEED_URL),
+}));
+
+const londonistSectionDate = (heading, window) => {
+  const normalized = text(heading).toLowerCase();
+  const todayWeekday = weekdayName(window.today);
+
+  if (/all week|ongoing|today/.test(normalized)) return window.todayLabel;
+  if (/all weekend/.test(normalized)) {
+    return /saturday|sunday/.test(todayWeekday) ? window.todayLabel : null;
+  }
+
+  const weekdayMatch = normalized.match(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b(?:\s+(\d{1,2})\s+([a-z]+))?/i);
+  if (!weekdayMatch) return null;
+  if (weekdayMatch[2]) return dateFromDayMonth(weekdayMatch[2], weekdayMatch[3], window.today.year);
+  return WEEKDAYS[weekdayMatch[1]] === WEEKDAYS[todayWeekday] ? window.todayLabel : null;
+};
+
+const compareDateLabels = (left, right) => left.localeCompare(right);
+
+const londonistTimeApplies = (time, sectionDate, window) => {
+  const normalized = text(time).toLowerCase();
+  if (!normalized || !sectionDate) return true;
+  const year = window.today.year;
+
+  const twoMonthRange = normalized.match(/(\d{1,2})\s+([a-z]+)\s*-\s*(\d{1,2})\s+([a-z]+)/i);
+  if (twoMonthRange) {
+    const start = dateFromDayMonth(twoMonthRange[1], twoMonthRange[2], year);
+    const end = dateFromDayMonth(twoMonthRange[3], twoMonthRange[4], year);
+    return Boolean(start && end && compareDateLabels(window.todayLabel, start) >= 0 && compareDateLabels(window.todayLabel, end) <= 0);
+  }
+
+  const sameMonthRange = normalized.match(/(\d{1,2})-(\d{1,2})\s+([a-z]+)/i);
+  if (sameMonthRange) {
+    const start = dateFromDayMonth(sameMonthRange[1], sameMonthRange[3], year);
+    const end = dateFromDayMonth(sameMonthRange[2], sameMonthRange[3], year);
+    return Boolean(start && end && compareDateLabels(window.todayLabel, start) >= 0 && compareDateLabels(window.todayLabel, end) <= 0);
+  }
+
+  const untilMatch = normalized.match(/until\s+(\d{1,2})\s+([a-z]+)/i);
+  if (untilMatch) {
+    const end = dateFromDayMonth(untilMatch[1], untilMatch[2], year);
+    return Boolean(end && compareDateLabels(window.todayLabel, end) <= 0);
+  }
+
+  const singleDate = normalized.match(/\b(\d{1,2})\s+([a-z]+)\b/i);
+  if (singleDate) {
+    return dateFromDayMonth(singleDate[1], singleDate[2], year) === window.todayLabel;
+  }
+
+  return true;
+};
+
+const parseLondonistEvents = (xml, window) => {
+  const items = parseRssItems(xml).filter((item) => /things to do in london/i.test(item.title));
+  const events = [];
+
+  for (const item of items.slice(0, 4)) {
+    let sectionDate = /weekend/i.test(item.title) ? null : window.todayLabel;
+    let currentImage = item.image;
+    const tokens = [...item.content.matchAll(/<h2[^>]*>[\s\S]*?<\/h2>|<img\b[^>]*>|<p\b[^>]*>[\s\S]*?<\/p>/gi)];
+
+    for (const [token] of tokens) {
+      if (/^<h2/i.test(token)) {
+        sectionDate = londonistSectionDate(stripTags(token), window);
+        continue;
+      }
+
+      if (/^<img/i.test(token)) {
+        currentImage = bestImageFromHtml(token, LONDONIST_FEED_URL) ?? currentImage;
+        continue;
+      }
+
+      if (!sectionDate || sectionDate !== window.todayLabel) continue;
+      const strongMatches = [...token.matchAll(/<strong[^>]*>([\s\S]*?)<\/strong>/gi)].map((match) => stripTags(match[1]));
+      const rawTitle = strongMatches[0] ?? '';
+      const title = rawTitle.replace(/:\s*$/, '').trim();
+      if (!title || title.length < 4 || /sponsor message/i.test(title)) continue;
+
+      const href = token.match(/<a[^>]+href=["']([^"']+)["']/i)?.[1];
+      const description = stripTags(token)
+        .replace(strongMatches[0] ?? '', '')
+        .replace(strongMatches.at(-1) ?? '', '')
+        .replace(/^:\s*/, '')
+        .slice(0, 260);
+      if (description.length < 45) continue;
+
+      const time = strongMatches.at(-1) && strongMatches.at(-1) !== strongMatches[0]
+        ? strongMatches.at(-1)
+        : 'See details';
+      if (!londonistTimeApplies(time, sectionDate, window)) continue;
+      const startsAt = parseLondonTime(sectionDate, time);
+      const type = inferType(title, description);
+
+      events.push(normalizeEvent({
+        title,
+        type,
+        venue: 'Londonist pick',
+        address: 'London',
+        date: sectionDate,
+        time,
+        description,
+        url: absoluteUrl(href, item.link) ?? item.link,
+        image: currentImage,
+        source: 'Londonist',
+        startsAt,
+      }));
+    }
+  }
+
+  return events.slice(0, 12);
 };
 
 const parseJsonLdEvents = (html, baseUrl, source, window) => {
@@ -332,8 +652,9 @@ const parseJsonLdEvents = (html, baseUrl, source, window) => {
 };
 
 const parseArticleCards = (html, baseUrl, source, window) => {
-  const cards = [...html.matchAll(/<article[\s\S]*?<\/article>|<li[\s\S]*?<\/li>/gi)].slice(0, 80);
+  const cards = [...html.matchAll(/<article[\s\S]*?<\/article>|<li[\s\S]*?<\/li>|<div[^>]+class=["'][^"']*(?:event|card|listing|teaser|programme|tile)[^"']*["'][^>]*>[\s\S]*?<\/div>/gi)].slice(0, 120);
   const events = [];
+  const normalizeLabel = (value) => value.toLowerCase().replace(/&/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
   const genericLabels = new Set([
     'search our event calendar',
     'attractions',
@@ -347,17 +668,29 @@ const parseArticleCards = (html, baseUrl, source, window) => {
     'nightlife',
     'sport fitness',
     'tours walks',
+    'go to the content',
+    'skip to main content',
+    'things to do in london',
+    'view all',
+    'read more',
+    'load more',
+    'search',
+    'menu',
   ]);
 
   for (const [card] of cards) {
     const anchor = card.match(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/i);
     const title = stripTags(card.match(/<h[2-4][^>]*>([\s\S]*?)<\/h[2-4]>/i)?.[1] ?? anchor?.[2] ?? '');
     if (!title || title.length < 4) continue;
-    if (genericLabels.has(title.toLowerCase().replace(/&/g, '').replace(/[^a-z0-9]+/g, ' ').trim())) continue;
+    if (title.length > 120) continue;
+    if (genericLabels.has(normalizeLabel(title))) continue;
 
     const url = absoluteUrl(anchor?.[1], baseUrl);
-    const image = absoluteUrl(card.match(/<img[^>]+(?:src|data-src)=["']([^"']+)["']/i)?.[1], baseUrl);
+    if (!url || url === baseUrl) continue;
+    if (new URL(url).hostname !== new URL(baseUrl).hostname && !/^https?:\/\/(www\.)?(eventbrite|dice|ticketmaster|songkick|meetup|outsavvy|designmynight|seetickets|dice)\./i.test(url)) continue;
+    const image = bestImageFromHtml(card, baseUrl);
     const description = stripTags(card).replace(title, '').slice(0, 260);
+    if (/\b(window|digitalData|pageInstanceID|timestamp|sysEnv|cookie|privacy policy|newsletter|advertising|subscribe)\b/i.test(description)) continue;
     if (description.length < 35 && source !== 'Atlas Obscura') continue;
     const type = inferType(title, description);
 
@@ -378,6 +711,31 @@ const parseArticleCards = (html, baseUrl, source, window) => {
 
   return events;
 };
+
+const fetchGenericLondonSource = async ({ source, url }, window) => {
+  const html = await fetchText(url, 8500);
+  return [
+    ...parseJsonLdEvents(html, url, source, window),
+    ...parseArticleCards(html, url, source, window),
+  ].slice(0, 18);
+};
+
+const GENERIC_LONDON_SOURCES = [
+  { source: 'London The Inside', url: LONDON_THE_INSIDE_URL },
+  { source: 'Songkick', url: SONGKICK_LONDON_URL },
+  { source: 'Secret London', url: SECRET_LDN_URL },
+  { source: 'Barbican', url: BARBICAN_URL },
+  { source: 'BFI', url: BFI_URL },
+  { source: 'The Nudge', url: THE_NUDGE_URL },
+  { source: 'Somerset House', url: SOMERSET_HOUSE_URL },
+  { source: 'Ents24', url: ENTS24_LONDON_URL },
+  { source: 'Intelligence Squared', url: INTELLIGENCE_SQUARED_URL },
+  { source: 'Meetup London', url: MEETUP_LONDON_URL },
+  { source: 'Eventbrite Free London', url: EVENTBRITE_FREE_LONDON_URL },
+  { source: 'Royal Institution', url: ROYAL_INSTITUTION_URL },
+  { source: 'London Museum', url: LONDON_MUSEUM_URL },
+  { source: 'Gresham College', url: GRESHAM_URL },
+];
 
 const runSource = async (source, fetcher, timeoutMs = 9000) => {
   try {
@@ -402,13 +760,14 @@ const dedupeEvents = (events) => {
       continue;
     }
     const current = byKey.get(key);
+    const preferred = sourceRank(event) < sourceRank(current) ? event : current;
+    const alternate = preferred === event ? current : event;
     byKey.set(key, {
-      ...current,
-      ...event,
-      source: Array.from(new Set([current.source, event.source].filter(Boolean))).join(' + '),
-      image: hasScrapedImage(current) ? current.image : event.image,
-      description: current.description.length > event.description.length ? current.description : event.description,
-      startsAt: current.startsAt || event.startsAt,
+      ...preferred,
+      source: Array.from(new Set([preferred.source, alternate.source].filter(Boolean))).join(' + '),
+      image: hasScrapedImage(preferred) ? preferred.image : alternate.image,
+      description: preferred.description.length >= alternate.description.length ? preferred.description : alternate.description,
+      startsAt: preferred.startsAt || alternate.startsAt,
     });
   }
 
@@ -416,6 +775,12 @@ const dedupeEvents = (events) => {
 };
 
 const sortEvents = (events) => events.sort((a, b) => {
+  const audienceRank = childAudienceRank(a) - childAudienceRank(b);
+  if (audienceRank !== 0) return audienceRank;
+
+  const evergreenRank = evergreenGuideRank(a) - evergreenGuideRank(b);
+  if (evergreenRank !== 0) return evergreenRank;
+
   const freeRank = priceRank(a) - priceRank(b);
   if (freeRank !== 0) return freeRank;
 
@@ -425,10 +790,87 @@ const sortEvents = (events) => events.sort((a, b) => {
   const imageRank = Number(hasScrapedImage(b)) - Number(hasScrapedImage(a));
   if (imageRank !== 0) return imageRank;
 
+  const sourcePriorityRank = sourceRank(a) - sourceRank(b);
+  if (sourcePriorityRank !== 0) return sourcePriorityRank;
+
   const left = a.startsAt ? new Date(a.startsAt).getTime() : Number.MAX_SAFE_INTEGER;
   const right = b.startsAt ? new Date(b.startsAt).getTime() : Number.MAX_SAFE_INTEGER;
   return left - right;
 });
+
+const interleaveSources = (events) => {
+  const buckets = new Map();
+  for (const event of events) {
+    const key = sourceKey(event);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(event);
+  }
+
+  const orderedKeys = [...buckets.keys()].sort((left, right) => {
+    const leftFirst = buckets.get(left)[0];
+    const rightFirst = buckets.get(right)[0];
+    return sourceRank(leftFirst) - sourceRank(rightFirst);
+  });
+  const output = [];
+  let previousKey = null;
+
+  while (output.length < events.length) {
+    const availableKeys = orderedKeys.filter((key) => buckets.get(key)?.length);
+    if (!availableKeys.length) break;
+    const nextKey = availableKeys.find((key) => key !== previousKey) ?? availableKeys[0];
+    output.push(buckets.get(nextKey).shift());
+    previousKey = nextKey;
+  }
+
+  return output;
+};
+
+const qualityGroupKey = (event) => [
+  childAudienceRank(event),
+  priceRank(event),
+  recurringRank(event),
+  Number(!hasScrapedImage(event)),
+  evergreenGuideRank(event),
+].join(':');
+
+const mixEvents = (events) => {
+  const sorted = sortEvents(events);
+  const groups = new Map();
+
+  for (const event of sorted) {
+    const key = qualityGroupKey(event);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(event);
+  }
+
+  return softenSourceRuns([...groups.values()].flatMap(interleaveSources));
+};
+
+const softenSourceRuns = (events, maxRun = 3) => {
+  const mixed = [...events];
+  for (let index = maxRun; index < mixed.length; index += 1) {
+    const currentSource = sourceKey(mixed[index]);
+    const isRun = mixed
+      .slice(index - maxRun, index)
+      .every((event) => sourceKey(event) === currentSource);
+
+    if (!isRun) continue;
+
+    const replacementIndex = mixed.findIndex((event, candidateIndex) => (
+      candidateIndex > index
+      && sourceKey(event) !== currentSource
+      && childAudienceRank(event) === childAudienceRank(mixed[index])
+      && evergreenGuideRank(event) === evergreenGuideRank(mixed[index])
+    ));
+
+    if (replacementIndex > index) {
+      const [replacement] = mixed.splice(replacementIndex, 1);
+      mixed.splice(index, 0, replacement);
+    }
+  }
+
+  return mixed;
+};
 
 const isInWindow = (event, window) => {
   if (!event.startsAt) return event.date === window.todayLabel;
@@ -458,7 +900,17 @@ export const getTodayLondonEvents = async ({ date, phase = 'full' } = {}) => {
     {
       source: 'IanVisits',
       phase: 'fast',
-      fetcher: async () => parseIanVisitsEvents(await fetchText(IAN_VISITS_URL), window),
+      fetcher: async () => enrichIanVisitsImages(parseIanVisitsEvents(await fetchText(IAN_VISITS_URL), window)),
+    },
+    {
+      source: 'Londonist',
+      phase: 'fast',
+      fetcher: async () => parseLondonistEvents(await fetchText(LONDONIST_FEED_URL), window),
+    },
+    {
+      source: 'Resident Advisor',
+      phase: 'fast',
+      fetcher: async () => fetchRaLondonEvents(window),
     },
     {
       source: 'City of London',
@@ -483,6 +935,11 @@ export const getTodayLondonEvents = async ({ date, phase = 'full' } = {}) => {
       phase: 'full',
       fetcher: async () => parseArticleCards(await fetchText(FEVER_LONDON_URL), FEVER_LONDON_URL, 'Fever', window),
     },
+    ...GENERIC_LONDON_SOURCES.map((sourceConfig) => ({
+      source: sourceConfig.source,
+      phase: 'full',
+      fetcher: async () => fetchGenericLondonSource(sourceConfig, window),
+    })),
   ].filter((source) => normalizedPhase === 'full' || source.phase === 'fast');
 
   const results = await Promise.all(sources.map((source) => runSource(source.source, source.fetcher, normalizedPhase === 'fast' ? 7000 : 11_000)));
@@ -490,7 +947,7 @@ export const getTodayLondonEvents = async ({ date, phase = 'full' } = {}) => {
     ...source,
     events: source.events.filter((event) => isInWindow(event, window)),
   }));
-  const events = sortEvents(dedupeEvents(filteredResults.flatMap((source) => source.events))).slice(0, 80);
+  const events = mixEvents(dedupeEvents(filteredResults.flatMap((source) => source.events))).slice(0, 80);
 
   const payload = {
     events,
