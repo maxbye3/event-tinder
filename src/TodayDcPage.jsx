@@ -314,7 +314,11 @@ const formatDateChoice = (dateValue) => {
   }).format(parsed);
 };
 
-const TodayDcPage = ({ city = 'dc' }) => {
+const withMumEditionSearch = (path, isMumEdition) => (
+  isMumEdition ? `${path}${path.includes('?') ? '&' : '?'}mum-edition` : path
+);
+
+const TodayDcPage = ({ city = 'dc', isMumEdition = false }) => {
   const cityConfig = CITY_CONFIGS[city] ?? CITY_CONFIGS.dc;
   const [payload, setPayload] = useState(null);
   const [error, setError] = useState(null);
@@ -432,10 +436,10 @@ const TodayDcPage = ({ city = 'dc' }) => {
   };
 
   return (
-    <main className="today-page">
+    <main className={`today-page ${isMumEdition ? 'today-page--mum-edition' : ''}`}>
       <header className="today-page__header">
         <div>
-          <a className="today-page__back" href={cityConfig.homePath}>Back</a>
+          <a className="today-page__back" href={withMumEditionSearch(cityConfig.homePath, isMumEdition)}>Back</a>
           <h1>
             Event Tinder <span>{cityConfig.edition}</span>
           </h1>
@@ -457,7 +461,7 @@ const TodayDcPage = ({ city = 'dc' }) => {
               type="button"
               disabled={itinerary.length === 0}
               onClick={() => {
-                window.location.href = '/itinerary';
+                window.location.href = withMumEditionSearch('/itinerary', isMumEdition);
               }}
             >
               See itinerary

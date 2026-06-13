@@ -284,6 +284,18 @@ const browserLooksUkBased = () => {
   }
 };
 
+const isMumEditionEnabled = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return window.location.search.includes('mum-edition');
+};
+
+const withMumEditionSearch = (path, isMumEdition) => (
+  isMumEdition ? `${path}${path.includes('?') ? '&' : '?'}mum-edition` : path
+);
+
 const toOptionalString = (value) => {
   if (typeof value !== 'string') {
     return null;
@@ -378,19 +390,25 @@ const shouldShowWelcomeModal = () => {
 };
 
 const App = () => {
+  const isMumEdition = isMumEditionEnabled();
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.toggle('theme-mum-edition', isMumEdition);
+  }
+
   if (window.location.pathname === '/today-dc') {
-    return <TodayDcPage city="dc" />;
+    return <TodayDcPage city="dc" isMumEdition={isMumEdition} />;
   }
 
   if (window.location.pathname === '/today-london') {
-    return <TodayDcPage city="london" />;
+    return <TodayDcPage city="london" isMumEdition={isMumEdition} />;
   }
 
   const cityKey = 'london';
   const cityConfig = CITY_CONFIGS[cityKey];
+  const editionSearch = isMumEdition ? '?mum-edition' : '';
 
   if (cityKey === 'london' && window.location.pathname === '/') {
-    window.history.replaceState(null, '', cityConfig.homePath);
+    window.history.replaceState(null, '', `${cityConfig.homePath}${editionSearch}`);
   }
 
   const [payload, setPayload] = useState(null);
@@ -599,7 +617,7 @@ const App = () => {
   };
 
   return (
-    <main className="app app--today">
+    <main className={`app app--today ${isMumEdition ? 'app--mum-edition' : ''}`}>
       {showWelcome ? (
         <section className="swipe-instructions" aria-label="Welcome to Event Tinder">
           <div className="swipe-instructions__panel swipe-instructions__panel--welcome">
@@ -674,7 +692,7 @@ const App = () => {
           </h1>
           {hasItineraryItems ? (
             <>
-              <a className="app__itinerary-link" href="/itinerary">
+              <a className="app__itinerary-link" href={withMumEditionSearch('/itinerary', isMumEdition)}>
                 Go to itinerary
               </a>
               <div className="app__itinerary-divider" aria-hidden="true" />
@@ -694,7 +712,7 @@ const App = () => {
               aria-label="Choose event date"
             />
           </label>
-          <a className="app__mode-link" href={cityConfig.listPath}>
+          <a className="app__mode-link" href={withMumEditionSearch(cityConfig.listPath, isMumEdition)}>
             List mode
           </a>
           <button

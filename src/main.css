@@ -270,6 +270,255 @@ body {
   pointer-events: none;
 }
 
+:root.theme-mum-edition {
+  color: #111827;
+  background-color: #f3f4f6;
+  background-image: none;
+}
+
+:root.theme-mum-edition body {
+  color: #111827;
+  background: #f3f4f6;
+}
+
+.app--mum-edition,
+.today-page--mum-edition {
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.app--mum-edition *,
+.today-page--mum-edition * {
+  letter-spacing: 0;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+.app--mum-edition .app__title,
+.today-page--mum-edition h1 {
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: clamp(1.6rem, 6vw, 2.35rem);
+  font-weight: 800;
+  line-height: 1.08;
+  text-transform: none;
+}
+
+.app--mum-edition .app__title span,
+.today-page--mum-edition h1 span {
+  color: #1d4ed8;
+}
+
+.app--mum-edition .app__range,
+.today-page--mum-edition .today-page__header p {
+  color: #374151;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.app--mum-edition .app__day-picker,
+.today-page--mum-edition .today-page__day-picker,
+.app--mum-edition .app__mode-link,
+.app--mum-edition .app__refresh,
+.app--mum-edition .app__instructions-button,
+.app--mum-edition .app__itinerary-link,
+.today-page--mum-edition .today-page__refresh,
+.today-page--mum-edition .today-page__itinerary-button,
+.today-page--mum-edition .today-event__link,
+.today-page--mum-edition .today-event__add {
+  border: 2px solid #111827;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  text-transform: none;
+}
+
+.app--mum-edition .app__mode-link,
+.app--mum-edition .app__refresh,
+.app--mum-edition .app__instructions-button,
+.app--mum-edition .app__itinerary-link,
+.today-page--mum-edition .today-page__refresh,
+.today-page--mum-edition .today-page__itinerary-button,
+.today-page--mum-edition .today-event__link,
+.today-page--mum-edition .today-event__add {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.app--mum-edition .app__mode-link:hover,
+.app--mum-edition .app__refresh:hover,
+.app--mum-edition .app__instructions-button:hover,
+.app--mum-edition .app__itinerary-link:hover,
+.today-page--mum-edition .today-page__refresh:hover,
+.today-page--mum-edition .today-page__itinerary-button:hover,
+.today-page--mum-edition .today-event__link:hover,
+.today-page--mum-edition .today-event__add:hover {
+  background: #1e40af;
+  border-color: #1e40af;
+  color: #ffffff;
+}
+
+.app--mum-edition .app__itinerary-divider {
+  background: #d1d5db;
+}
+
+.app--mum-edition .app__error,
+.today-page--mum-edition .today-page__error {
+  background: #fef2f2;
+  border-color: #991b1b;
+  color: #991b1b;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.app--mum-edition .swipe-instructions {
+  background: rgba(17, 24, 39, 0.56);
+}
+
+.app--mum-edition .swipe-instructions__panel {
+  border: 2px solid #111827;
+  background: #ffffff;
+  color: #111827;
+}
+
+.app--mum-edition .swipe-instructions__eyebrow,
+.app--mum-edition .swipe-instructions h2,
+.app--mum-edition .swipe-instructions__copy,
+.app--mum-edition .add-event-form label span {
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+  text-transform: none;
+}
+
+.app--mum-edition .swipe-instructions h2 {
+  font-size: clamp(1.4rem, 6vw, 1.9rem);
+  font-weight: 800;
+}
+
+.app--mum-edition .swipe-instructions__copy,
+.app--mum-edition .add-event-form textarea,
+.app--mum-edition .add-event-form input {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 600;
+}
+
+.app--mum-edition .add-event-form textarea,
+.app--mum-edition .add-event-form input {
+  border-color: #111827;
+  background: #ffffff;
+  color: #111827;
+}
+
+.app--mum-edition .swipe-instructions button {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #ffffff;
+  font-family: Arial, Helvetica, sans-serif;
+  text-transform: none;
+}
+
+.app--mum-edition .event-card {
+  border: 2px solid #111827;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #111827;
+}
+
+.app--mum-edition .event-card--primary,
+.app--mum-edition .event-card--secondary {
+  background: #ffffff;
+  border-color: #111827;
+  color: #111827;
+}
+
+.app--mum-edition .event-card__body,
+.app--mum-edition .event-card--primary .event-card__body,
+.app--mum-edition .event-card--secondary .event-card__body,
+.app--mum-edition .event-card__meta,
+.app--mum-edition .event-card__venue,
+.app--mum-edition .event-card__description {
+  color: #111827;
+}
+
+.app--mum-edition .event-card__header h2 {
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: clamp(1.25rem, 5vw, 1.7rem);
+  font-weight: 800;
+  line-height: 1.15;
+  text-transform: none;
+}
+
+.app--mum-edition .event-card__venue {
+  border-bottom-color: #d1d5db;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.app--mum-edition .event-card__description {
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 600;
+}
+
+.app--mum-edition .event-card__type {
+  background: #e5e7eb;
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+  letter-spacing: 0;
+}
+
+.app--mum-edition .event-card__link,
+.app--mum-edition .swipe-container__details {
+  background: #1d4ed8;
+  color: #ffffff;
+  border: 2px solid #1d4ed8;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.app--mum-edition .swipe-hints__item {
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+  text-transform: none;
+}
+
+.app--mum-edition .swipe-hints__item svg {
+  filter: none;
+  stroke: currentColor;
+}
+
+.app--mum-edition .swipe-section__info {
+  border-color: #111827;
+  background: #ffffff;
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.today-page--mum-edition .today-page__header {
+  border-bottom-color: #d1d5db;
+}
+
+.today-page--mum-edition .today-page__back {
+  color: #1d4ed8;
+}
+
+.today-page--mum-edition .today-page__source,
+.today-page--mum-edition .today-page__source-priority,
+.today-page--mum-edition .today-page__status,
+.today-page--mum-edition .today-page__empty,
+.today-page--mum-edition .today-event {
+  border-color: #d1d5db;
+  background: #ffffff;
+  color: #111827;
+}
+
+.today-page--mum-edition .today-event h2,
+.today-page--mum-edition .today-event__venue,
+.today-page--mum-edition .today-event__description,
+.today-page--mum-edition .today-page__source-priority li {
+  color: #111827;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
 .app__error {
   border: 2px solid #ff0021;
   border-radius: 0.5rem;

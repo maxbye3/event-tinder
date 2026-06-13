@@ -435,7 +435,10 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
           ) : lastSwipe.direction === 'right' ? (
             <>
               <strong>{lastSwipe.title}</strong> has been added to your{' '}
-              <a className="swipe-section__link" href="/itinerary">
+              <a
+                className="swipe-section__link"
+                href={window.location.search.includes('mum-edition') ? '/itinerary?mum-edition' : '/itinerary'}
+              >
                 itinerary
               </a>
             </>

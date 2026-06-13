@@ -33,10 +33,21 @@
   <script src="/itinerary/EmailItinerary.js"></script>
   <script>
     (function () {
+      const isMumEdition = window.location.search.includes('mum-edition');
+      if (isMumEdition) {
+        document.documentElement.classList.add('theme-mum-edition');
+      }
+
       const STORAGE_KEY = 'event-tinder-itinerary';
       const listEl = document.querySelector('[data-itinerary-list]');
       const emptyEl = document.querySelector('[data-itinerary-empty]');
       const emailButton = document.querySelector('[data-email-itinerary]');
+
+      if (isMumEdition) {
+        document.querySelectorAll('a[href="/"]').forEach((link) => {
+          link.href = '/london?mum-edition';
+        });
+      }
 
       if (!listEl || !emptyEl) {
         return;
