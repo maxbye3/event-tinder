@@ -424,8 +424,8 @@ body {
 
 :root.theme-mum-edition .button,
 :root.theme-mum-edition .itinerary-modal .button {
-  border: 2px solid #1d4ed8;
-  background: #1d4ed8;
+  border: 2px solid #2980b9;
+  background: #2980b9;
   color: #ffffff;
   font-family: Arial, Helvetica, sans-serif;
   font-weight: 700;
@@ -434,7 +434,84 @@ body {
 
 :root.theme-mum-edition .button:hover,
 :root.theme-mum-edition .itinerary-modal .button:hover {
-  background: #1e40af;
-  border-color: #1e40af;
+  background: #2471a3;
+  border-color: #2471a3;
   color: #ffffff;
+}
+
+:root.theme-mum-edition .itinerary-card__actions .button:nth-child(1) {
+  background: #2980b9;
+  border-color: #2980b9;
+}
+
+:root.theme-mum-edition .itinerary-card__actions .button:nth-child(1):hover {
+  background: #2471a3;
+  border-color: #2471a3;
+}
+
+:root.theme-mum-edition .itinerary-card__actions .button:nth-child(2) {
+  background: #c0392b;
+  border-color: #c0392b;
+}
+
+:root.theme-mum-edition .itinerary-card__actions .button:nth-child(2):hover {
+  background: #a93226;
+  border-color: #a93226;
+}
+
+:root.theme-mum-edition .itinerary-card__actions .button:nth-child(3) {
+  background: #27ae60;
+  border-color: #27ae60;
+}
+
+:root.theme-mum-edition .itinerary-card__actions .button:nth-child(3):hover {
+  background: #229954;
+  border-color: #229954;
+}
+
+:root.theme-mum-edition .itinerary-card__actions .button:nth-child(4) {
+  background: #8e44ad;
+  border-color: #8e44ad;
+  color: #ffffff;
+}
+
+:root.theme-mum-edition .itinerary-card__actions .button:nth-child(4):hover {
+  background: #7d3c98;
+  border-color: #7d3c98;
+  color: #ffffff;
+}
+
+:root.theme-mum-edition .itinerary__email-button {
+  background: #16a085;
+  border-color: #16a085;
+}
+
+:root.theme-mum-edition .itinerary__email-button:hover {
+  background: #138d75;
+  border-color: #138d75;
+}
+
+:root.theme-mum-edition .itinerary-modal__actions .button:nth-child(1) {
+  background: #27ae60;
+  border-color: #27ae60;
+}
+
+:root.theme-mum-edition .itinerary-modal__actions .button:nth-child(2) {
+  background: #2980b9;
+  border-color: #2980b9;
+}
+
+:root.theme-mum-edition .itinerary-modal__actions .button:nth-child(3) {
+  background: #8e44ad;
+  border-color: #8e44ad;
+}
+
+:root.theme-mum-edition .itinerary-modal__actions .button:nth-child(4) {
+  background: #d35400;
+  border-color: #d35400;
+}
+
+:root.theme-mum-edition .itinerary-modal__panel > .button {
+  background: #34495e;
+  border-color: #34495e;
 }
