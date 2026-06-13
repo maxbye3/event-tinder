@@ -1008,13 +1008,18 @@ body {
 
 @media (max-width: 640px) {
   .swipe-instructions {
-    place-items: end center;
+    place-items: center;
+    min-height: 100svh;
+    height: 100dvh;
     padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    overflow-y: auto;
   }
 
   .swipe-instructions__panel {
     width: min(100%, 420px);
-    max-height: min(82vh, 620px);
+    max-height: calc(100svh - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
     box-sizing: border-box;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -1039,6 +1044,11 @@ body {
   .swipe-instructions button {
     min-height: 2.75rem;
     padding: 0.65rem 0.85rem;
+  }
+
+  .swipe-instructions__panel--welcome > button {
+    position: sticky;
+    bottom: 0;
   }
 
   .app__home-header {

@@ -607,10 +607,9 @@ const App = () => {
             <h2>Welcome to Event Tinder</h2>
             <div className="swipe-instructions__copy">
               <p>Instead of singles in your area, we are showing events.</p>
-              <p>Swipe right if you are interested, left if you are not.</p>
-              <p>Interested events are added to your itinerary below the cards.</p>
-              <p>You can also change the date and refresh the deck.</p>
-              <p>Please let me know if you go to any of the events!</p>
+              <p>Swipe right to save an event, left to skip.</p>
+              <p>Saved events go into your itinerary below the cards.</p>
+              <p>You can change the date or refresh the deck anytime.</p>
             </div>
             <button type="button" onClick={closeWelcome}>
               Got it
