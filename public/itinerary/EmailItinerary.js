@@ -36,13 +36,37 @@
     return lines.join('\n');
   };
 
-  const createEmailBody = (payload) => [
-    'Here is my DC Event Tinder itinerary:',
-    '',
-    payload.map(formatEvent).join('\n\n'),
-    '',
-    'Built with Event Tinder DC Edition',
-  ].join('\n');
+  const inferItineraryEdition = (payload) => {
+    const haystack = payload.map((event) => [
+      event?.title,
+      event?.venue,
+      event?.address,
+      event?.source,
+      event?.description,
+      event?.url,
+    ].filter(Boolean).join(' ')).join(' ');
+
+    if (/\b(london|uk|united kingdom|westminster|southbank|barbican|shoreditch|soho|camden|hackney|greenwich|londonist)\b/i.test(haystack)) {
+      return { cityName: 'London', edition: 'London Edition' };
+    }
+
+    if (/\b(washington|dc|district of columbia|smithsonian|georgetown|dupont|capitol hill|downtown dc)\b/i.test(haystack)) {
+      return { cityName: 'DC', edition: 'DC Edition' };
+    }
+
+    return { cityName: '', edition: '' };
+  };
+
+  const createEmailBody = (payload) => {
+    const { cityName, edition } = inferItineraryEdition(payload);
+    return [
+      `Here is my ${cityName ? `${cityName} ` : ''}Event Tinder itinerary:`,
+      '',
+      payload.map(formatEvent).join('\n\n'),
+      '',
+      `Built with Event Tinder${edition ? ` ${edition}` : ''}`,
+    ].join('\n');
+  };
 
   const copyToClipboard = async (value) => {
     if (!global.navigator?.clipboard?.writeText) {
@@ -66,7 +90,9 @@
     const body = createEmailBody(payload);
     await copyToClipboard(body);
 
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent('DC Event Tinder Itinerary')}&body=${encodeURIComponent(body)}`;
+    const { cityName } = inferItineraryEdition(payload);
+    const subject = `${cityName ? `${cityName} ` : ''}Event Tinder Itinerary`;
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     const link = global.document.createElement('a');
     link.href = mailtoUrl;
     link.target = '_blank';

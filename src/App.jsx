@@ -248,7 +248,6 @@ const formatDateChoice = (dateValue) => {
 };
 
 const ADD_EVENT_EMAIL = 'botherandherobye@gmail.com';
-const ADD_EVENT_SUBJECT = 'DC Event Tinder: Add Event';
 const ITINERARY_STORAGE_KEY = 'event-tinder-itinerary';
 const REJECTED_EVENTS_STORAGE_KEY = 'event-tinder-rejected-events';
 const SELECTED_DATE_STORAGE_KEY = 'event-tinder-selected-date';
@@ -445,7 +444,8 @@ const App = () => {
       `Submitted from: ${window.location.href}`,
     ].join('\n');
 
-    window.location.href = `mailto:${ADD_EVENT_EMAIL}?subject=${encodeURIComponent(ADD_EVENT_SUBJECT)}&body=${encodeURIComponent(body)}`;
+    const subject = `${cityConfig.cityName} Event Tinder: Add Event`;
+    window.location.href = `mailto:${ADD_EVENT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     setShowAddEvent(false);
     setAddEventMessage('');
     setCaptchaAnswer('');

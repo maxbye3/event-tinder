@@ -77,6 +77,27 @@
         return parts.join(' • ');
       };
 
+      const inferEventEdition = (event) => {
+        const haystack = [
+          event?.title,
+          event?.venue,
+          event?.address,
+          event?.source,
+          event?.description,
+          event?.url,
+        ].filter(Boolean).join(' ');
+
+        if (/\b(london|uk|united kingdom|westminster|southbank|barbican|shoreditch|soho|camden|hackney|greenwich|londonist)\b/i.test(haystack)) {
+          return { cityName: 'London', edition: 'London Edition' };
+        }
+
+        if (/\b(washington|dc|district of columbia|smithsonian|georgetown|dupont|capitol hill|downtown dc)\b/i.test(haystack)) {
+          return { cityName: 'DC', edition: 'DC Edition' };
+        }
+
+        return { cityName: '', edition: '' };
+      };
+
       const parseDateOnly = (value) => {
         if (typeof value !== 'string') {
           return null;
@@ -233,10 +254,11 @@
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/^-|-$/g, '');
         const nowToken = formatForCalendar(new Date());
+        const { edition } = inferEventEdition(event);
         const lines = [
           'BEGIN:VCALENDAR',
           'VERSION:2.0',
-          'PRODID:-//Event Tinder//DC Edition//EN',
+          `PRODID:-//Event Tinder//${edition || 'Events'}//EN`,
           'CALSCALE:GREGORIAN',
           'METHOD:PUBLISH',
           'BEGIN:VEVENT',
@@ -450,7 +472,7 @@
         if (navigator.share) {
           try {
             await navigator.share({
-              title: safeText(event.title, 'DC Event Tinder event'),
+              title: safeText(event.title, 'Event Tinder event'),
               text: createShareText(event),
               url: safeText(event.url) || window.location.href,
             });

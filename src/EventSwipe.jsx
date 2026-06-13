@@ -391,7 +391,7 @@ const EventSwipe = ({ events, isLoading, feedKey, onItineraryChange, onRejectEve
             >
               {!hasOriginalImage ? (
                 <div className="event-card__placeholder-copy">
-                  <strong>DC event</strong>
+                  <strong>Event pick</strong>
                   <span>{typeLabel}</span>
                 </div>
               ) : null}
