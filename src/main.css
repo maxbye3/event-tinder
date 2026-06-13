@@ -1007,6 +1007,40 @@ body {
 }
 
 @media (max-width: 640px) {
+  .swipe-instructions {
+    place-items: end center;
+    padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
+  }
+
+  .swipe-instructions__panel {
+    width: min(100%, 420px);
+    max-height: min(82vh, 620px);
+    box-sizing: border-box;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.9rem;
+  }
+
+  .swipe-instructions__panel--welcome {
+    gap: 0.65rem;
+  }
+
+  .swipe-instructions h2 {
+    font-size: clamp(1.18rem, 6.2vw, 1.55rem);
+    line-height: 0.98;
+  }
+
+  .swipe-instructions__copy {
+    gap: 0.48rem;
+    font-size: 0.95rem;
+    line-height: 1.24;
+  }
+
+  .swipe-instructions button {
+    min-height: 2.75rem;
+    padding: 0.65rem 0.85rem;
+  }
+
   .app__home-header {
     align-items: stretch;
     flex-direction: column;

@@ -387,7 +387,7 @@ const App = () => {
     return <TodayDcPage city="london" />;
   }
 
-  const cityKey = window.location.pathname === '/london' || browserLooksUkBased() ? 'london' : 'dc';
+  const cityKey = 'london';
   const cityConfig = CITY_CONFIGS[cityKey];
 
   if (cityKey === 'london' && window.location.pathname === '/') {
@@ -608,7 +608,7 @@ const App = () => {
             <div className="swipe-instructions__copy">
               <p>Instead of singles in your area, we are showing events.</p>
               <p>Swipe right if you are interested, left if you are not.</p>
-              <p>Events you are interested in are added to an itinerary, which you can find by scrolling below the cards.</p>
+              <p>Interested events are added to your itinerary below the cards.</p>
               <p>You can also change the date and refresh the deck.</p>
               <p>Please let me know if you go to any of the events!</p>
             </div>
