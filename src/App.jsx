@@ -252,6 +252,8 @@ const ITINERARY_STORAGE_KEY = 'event-tinder-itinerary';
 const REJECTED_EVENTS_STORAGE_KEY = 'event-tinder-rejected-events';
 const SELECTED_DATE_STORAGE_KEY = 'event-tinder-selected-date';
 const WELCOME_MODAL_STORAGE_KEY = 'event-tinder-welcome-seen';
+const DC_CENTER = { latitude: 38.9072, longitude: -77.0369 };
+const DC_NEARBY_RADIUS_KM = 130;
 
 const CITY_CONFIGS = {
   dc: {
@@ -276,14 +278,6 @@ const CITY_CONFIGS = {
   },
 };
 
-const browserLooksUkBased = () => {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone === 'Europe/London';
-  } catch {
-    return false;
-  }
-};
-
 const isMumEditionEnabled = () => {
   if (typeof window === 'undefined') {
     return false;
@@ -295,6 +289,51 @@ const isMumEditionEnabled = () => {
 const withMumEditionSearch = (path, isMumEdition) => (
   isMumEdition ? `${path}${path.includes('?') ? '&' : '?'}mum-edition` : path
 );
+
+const getDistanceKm = (left, right) => {
+  const toRadians = (value) => value * (Math.PI / 180);
+  const earthRadiusKm = 6371;
+  const latitudeDelta = toRadians(right.latitude - left.latitude);
+  const longitudeDelta = toRadians(right.longitude - left.longitude);
+  const startLatitude = toRadians(left.latitude);
+  const endLatitude = toRadians(right.latitude);
+  const haversine = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(startLatitude) * Math.cos(endLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+
+  return 2 * earthRadiusKm * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+};
+
+const isNearDc = ({ latitude, longitude }) => (
+  getDistanceKm({ latitude, longitude }, DC_CENTER) <= DC_NEARBY_RADIUS_KM
+);
+
+const inferFallbackCityKey = () => {
+  try {
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (timeZone === 'Europe/London') {
+      return 'london';
+    }
+    if (timeZone === 'America/New_York') {
+      return 'dc';
+    }
+  } catch {
+    // Fall through to London when browser locale data is unavailable.
+  }
+
+  return 'london';
+};
+
+const setMumEditionSearch = (enabled) => {
+  const nextUrl = new URL(window.location.href);
+
+  if (enabled) {
+    nextUrl.searchParams.set('mum-edition', '');
+  } else {
+    nextUrl.searchParams.delete('mum-edition');
+  }
+
+  window.location.href = `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`;
+};
 
 const toOptionalString = (value) => {
   if (typeof value !== 'string') {
@@ -403,12 +442,14 @@ const App = () => {
     return <TodayDcPage city="london" isMumEdition={isMumEdition} />;
   }
 
-  const cityKey = 'london';
+  const [cityKey, setCityKey] = useState(inferFallbackCityKey);
   const cityConfig = CITY_CONFIGS[cityKey];
-  const editionSearch = isMumEdition ? '?mum-edition' : '';
+  const currentSearch = window.location.search;
 
   if (cityKey === 'london' && window.location.pathname === '/') {
-    window.history.replaceState(null, '', `${cityConfig.homePath}${editionSearch}`);
+    window.history.replaceState(null, '', `${cityConfig.homePath}${currentSearch}`);
+  } else if (cityKey === 'dc' && window.location.pathname === '/london') {
+    window.history.replaceState(null, '', `${cityConfig.homePath}${currentSearch}`);
   }
 
   const [payload, setPayload] = useState(null);
@@ -425,6 +466,39 @@ const App = () => {
   const [captchaAnswer, setCaptchaAnswer] = useState('');
   const [addEventError, setAddEventError] = useState('');
   const [showWelcome, setShowWelcome] = useState(shouldShowWelcomeModal);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setCityKey(inferFallbackCityKey());
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        setCityKey(isNearDc(coords) ? 'dc' : 'london');
+      },
+      () => {
+        setCityKey(inferFallbackCityKey());
+      },
+      {
+        enableHighAccuracy: false,
+        maximumAge: 1000 * 60 * 60 * 12,
+        timeout: 5000,
+      },
+    );
+  }, []);
+
+  useEffect(() => {
+    if (cityKey === 'london' && window.location.pathname === '/') {
+      window.history.replaceState(null, '', `${cityConfig.homePath}${currentSearch}`);
+    } else if (cityKey === 'dc' && window.location.pathname === '/london') {
+      window.history.replaceState(null, '', `${cityConfig.homePath}${currentSearch}`);
+    }
+  }, [cityConfig.homePath, cityKey, currentSearch]);
+
+  useEffect(() => {
+    setSelectedDate(readSelectedDateFromStorage(cityConfig.timeZone, cityConfig.key));
+  }, [cityConfig.key, cityConfig.timeZone]);
 
   const closeWelcome = () => {
     setShowWelcome(false);
@@ -729,6 +803,13 @@ const App = () => {
             onClick={() => setShowAddEvent(true)}
           >
             Add event
+          </button>
+          <button
+            className="app__theme-toggle"
+            type="button"
+            onClick={() => setMumEditionSearch(!isMumEdition)}
+          >
+            {isMumEdition ? 'Regular edition' : 'Mum edition'}
           </button>
         </div>
       </header>

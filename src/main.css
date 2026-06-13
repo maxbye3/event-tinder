@@ -203,6 +203,7 @@ body {
 .app__mode-link,
 .app__refresh,
 .app__instructions-button,
+.app__theme-toggle,
 .app__itinerary-link {
   border: 2px solid #270695;
   border-radius: 0.5rem;
@@ -222,11 +223,31 @@ body {
 
 .app__home-actions .app__mode-link,
 .app__home-actions .app__refresh,
-.app__home-actions .app__instructions-button {
+.app__home-actions .app__instructions-button,
+.app__home-actions .app__theme-toggle {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+}
+
+.app__home-actions .app__theme-toggle {
+  flex-basis: 100%;
+  width: 100%;
+}
+
+.app__theme-toggle {
+  background: #111827;
+  border-color: #111827;
+  box-shadow: 2px 2px 0 #ffffff;
+  color: #ffffff;
+  text-shadow: none;
+}
+
+.app__theme-toggle:hover {
+  background: #374151;
+  border-color: #ffffff;
+  color: #ffffff;
 }
 
 .app__mode-link {
@@ -320,6 +341,7 @@ body {
 .app--mum-edition .app__mode-link,
 .app--mum-edition .app__refresh,
 .app--mum-edition .app__instructions-button,
+.app--mum-edition .app__theme-toggle,
 .app--mum-edition .app__itinerary-link,
 .today-page--mum-edition .today-page__refresh,
 .today-page--mum-edition .today-page__itinerary-button,
@@ -337,6 +359,7 @@ body {
 .app--mum-edition .app__mode-link,
 .app--mum-edition .app__refresh,
 .app--mum-edition .app__instructions-button,
+.app--mum-edition .app__theme-toggle,
 .app--mum-edition .app__itinerary-link,
 .today-page--mum-edition .today-page__refresh,
 .today-page--mum-edition .today-page__itinerary-button,
@@ -367,6 +390,12 @@ body {
   border-color: #27ae60;
 }
 
+.app--mum-edition .app__theme-toggle {
+  background: #d35400;
+  border-color: #d35400;
+  color: #ffffff;
+}
+
 .app--mum-edition .app__itinerary-link,
 .today-page--mum-edition .today-page__itinerary-button {
   background: #8e44ad;
@@ -377,6 +406,7 @@ body {
 .app--mum-edition .app__mode-link:hover,
 .app--mum-edition .app__refresh:hover,
 .app--mum-edition .app__instructions-button:hover,
+.app--mum-edition .app__theme-toggle:hover,
 .app--mum-edition .app__itinerary-link:hover,
 .today-page--mum-edition .today-page__refresh:hover,
 .today-page--mum-edition .today-page__itinerary-button:hover,
@@ -403,6 +433,11 @@ body {
 .today-page--mum-edition .today-event__add:hover {
   background: #229954;
   border-color: #229954;
+}
+
+.app--mum-edition .app__theme-toggle:hover {
+  background: #e67e22;
+  border-color: #e67e22;
 }
 
 .app--mum-edition .app__itinerary-link:hover,
@@ -857,6 +892,7 @@ body {
 
   .app--today .app__day-picker,
   .app--today .app__instructions-button,
+  .app--today .app__theme-toggle,
   .app--today .app__itinerary-link,
   .app--today .app__itinerary-divider {
     grid-column: 1 / -1;
@@ -871,6 +907,7 @@ body {
   .app--today .app__mode-link,
   .app--today .app__refresh,
   .app--today .app__instructions-button,
+  .app--today .app__theme-toggle,
   .app--today .app__itinerary-link {
     min-height: 3.25rem;
     padding: 0.8rem 1rem;
@@ -1406,6 +1443,10 @@ body {
 
   .app__home-actions .app__instructions-button {
     grid-column: auto;
+  }
+
+  .app__home-actions .app__theme-toggle {
+    grid-column: 1 / -1;
   }
 
   .swipe-section__info {
