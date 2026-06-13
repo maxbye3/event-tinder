@@ -40,10 +40,18 @@
 
 <body>
   <iframe
+    id="event-tinder-frame"
     src="https://event-tinder.vercel.app/"
     title="Event Tinder"
     allow="clipboard-write; web-share"
   ></iframe>
+  <script>
+    const frame = document.getElementById('event-tinder-frame');
+    const target = new URL('https://event-tinder.vercel.app/');
+    target.search = window.location.search;
+    target.hash = window.location.hash;
+    frame.src = target.toString();
+  </script>
 </body>
 
 </html>
