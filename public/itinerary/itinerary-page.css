@@ -245,7 +245,8 @@ body {
 .itinerary-modal__panel {
   width: min(calc(100vw - 2rem), 420px);
   max-width: 100%;
-  max-height: min(calc(100vh - 2rem), 620px);
+  max-height: min(calc(100svh - 2rem), 620px);
+  max-height: min(calc(100dvh - 2rem), 620px);
   box-sizing: border-box;
   overflow-y: auto;
   border: 2px solid #270695;
@@ -316,13 +317,16 @@ body {
   }
 
   .itinerary-modal {
-    place-items: end center;
+    place-items: center;
+    min-height: 100svh;
+    height: 100dvh;
     padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem max(0.75rem, env(safe-area-inset-bottom));
   }
 
   .itinerary-modal__panel {
     width: 100%;
-    max-height: min(82vh, 620px);
+    max-height: calc(100svh - 1.5rem);
+    max-height: calc(100dvh - 1.5rem);
     padding: 0.9rem;
   }
 
@@ -340,6 +344,11 @@ body {
     min-height: 2.75rem;
     padding: 0.65rem 0.75rem;
     white-space: normal;
+  }
+
+  .itinerary-modal__panel > .button {
+    position: sticky;
+    bottom: 0;
   }
 
   .itinerary__email-bar {
